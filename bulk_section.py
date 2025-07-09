@@ -3,7 +3,61 @@ from datetime import datetime
 
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
 bulk_sections = [
-    # ... (existing bulk_sections unchanged)
+    {"title": "Spaghetti Order", "batch_ingredient": "Spaghetti", "batch_size": 85,
+     "ingredients": {"Spaghetti": 68, "Oil": 0.7},
+     "meals": ["Spaghetti Bolognese"]},
+    {"title": "Penne Order", "batch_ingredient": "Penne", "batch_size": 157,
+     "ingredients": {"Penne": 59, "Oil": 0.7},
+     "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
+    {"title": "Rice Order", "batch_ingredient": "Rice", "batch_size": 915,
+     "ingredients": {"Rice": 53, "Water": 95, "Salt": 1, "Oil": 1.5},
+     "meals": [
+         "Beef Chow Mein",
+         "Beef Burrito Bowl",
+         "Lebanese Beef Stew",
+         "Mongolian Beef",
+         "Butter Chicken",
+         "Thai Green Chicken Curry",
+         "Bean Nachos with Rice",        
+         "Chicken Fajita Bowl"           
+     ]},
+    {"title": "Moroccan Chicken", "batch_ingredient": "Chicken", "batch_size": 0,
+     "ingredients": {"Chicken": 180, "Oil": 2, "Lemon Juice": 6, "Moroccan Chicken Mix": 4},
+     "meals": ["Moroccan Chicken"]},
+    {"title": "Chicken Thigh", "batch_ingredient": "Chicken Thigh", "batch_size": 0,
+     "ingredients": {"Chicken": 150, "Oil": 4, "Roast Chicken Mix": 4},
+     "meals": ["Roasted Lemon Chicken & Potatoes", "Chicken Fajita Bowl"]},
+    {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
+     "ingredients": {"Steak": 110, "Oil": 1.5, "Baking Soda": 3},
+     "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
+    {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
+     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Salt": 1.5, "Oregano": 1.2},
+     "meals": ["Lamb Souvlaki"]},
+    {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
+     "ingredients": {"Potato": 150, "Cooking Cream": 20, "Butter": 7, "Salt": 1.5, "White Pepper": 0.5},
+     "meals": ["Beef Meatballs", "Steak with Mushroom Sauce"]},
+    {"title": "Sweet Potato Mash", "batch_ingredient": "Sweet Potato", "batch_size": 0,
+     "ingredients": {"Sweet Potato": 185, "Salt": 1, "White Pepper": 0.5},
+     "meals": ["Shepherd's Pie", "Chicken with Sweet Potato and Beans"]},
+    {"title": "Roasted Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 63,
+     "ingredients": {"Roasted Potatoes": 190, "Oil": 1, "Spices Mix": 2.5},
+     "meals": ["Naked Chicken Parma", "Lamb Souvlaki"]},
+    {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
+     "ingredients": {"Potatoes": 207, "Oil": 1, "Salt": 1.2},
+     "meals": ["Roasted Lemon Chicken & Potatoes"]},
+    {"title": "Roasted Thai Potatoes", "batch_ingredient": "Potato", "batch_size": 0,
+     "ingredients": {"Potato": 60, "Salt": 1},
+     "meals": ["Thai Green Chicken Curry"]},
+    {"title": "Lamb Onion Marinated", "batch_ingredient": "Red Onion", "batch_size": 0,
+     "ingredients": {"Red Onion": 30, "Parsley": 1.5, "Paprika": 0.5},
+     "meals": ["Lamb Souvlaki"]},
+    {"title": "Green Beans", "batch_ingredient": "Green Beans", "batch_size": 0,
+     "ingredients": {"Green Beans": 60},
+     "meals": [
+         "Chicken with Vegetables",
+         "Chicken with Sweet Potato and Beans",
+         "Steak with Mushroom Sauce"
+     ]}
 ]
 
 def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=None):
