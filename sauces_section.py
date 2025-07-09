@@ -11,7 +11,6 @@ def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
             "meal_key": "LAMB SOUVLAKI"
         }
     }
-    # Add page and heading
     pdf.add_page()
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Sauces", ln=1, align='C')
@@ -19,11 +18,13 @@ def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
     heights = [pdf.get_y(), pdf.get_y()]
     col = 0
     for name, data in sauces.items():
-        # All tables are similar size, but let's keep it robust for future expansion
+        if not isinstance(data, dict) or "ingredients" not in data or "meal_key" not in data:
+            continue
+        if not isinstance(data["ingredients"], list):
+            continue
         rows = 2 + len(data["ingredients"])
         block_h = rows * ch + pad
         col = 0 if heights[0] <= heights[1] else 1
-        # New page if necessary
         if heights[col] + block_h > bottom:
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
@@ -42,13 +43,21 @@ def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
         pdf.set_font("Arial", "", 8)
-        tm = meal_totals.get(data["meal_key"], 0)
+        key = data["meal_key"].upper()
+        tm = 0
+        try:
+            tm = meal_totals.get(key, 0)
+            if not isinstance(tm, (int, float)):
+                tm = 0
+        except Exception:
+            tm = 0
         for ing, am in data["ingredients"]:
+            req_ing = am * tm if isinstance(am, (int, float)) and isinstance(tm, (int, float)) else 0
             pdf.set_x(x)
-            pdf.cell(col_w * 0.3, ch, ing[:20], 1)
+            pdf.cell(col_w * 0.3, ch, str(ing)[:20], 1)
             pdf.cell(col_w * 0.2, ch, str(am), 1)
             pdf.cell(col_w * 0.2, ch, str(tm), 1)
-            pdf.cell(col_w * 0.3, ch, str(am * tm), 1)
+            pdf.cell(col_w * 0.3, ch, str(req_ing), 1)
             pdf.ln(ch)
         heights[col] = pdf.get_y() + pad
     return max(heights)
