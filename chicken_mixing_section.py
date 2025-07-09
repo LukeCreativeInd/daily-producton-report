@@ -1,7 +1,7 @@
 import math
 
 def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y):
-    # Two-column logic, like bulk_section
+    # Two-column logic
     heights = [start_y if start_y is not None else pdf.get_y(), start_y if start_y is not None else pdf.get_y()]
     col = 0
 
@@ -24,7 +24,7 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         return heights, col
 
     for name, ingredients, meal_key, divisor, extra in mixes:
-        # Estimate the height of the block (header + header row + ingredient rows + pad)
+        # Calculate height needed for this block (header + header row + ingredients + pad)
         block_h = (2 + len(ingredients)) * ch + pad
         heights, col = next_pos(heights, col, block_h)
         x, y = xpos[col], heights[col]
@@ -36,10 +36,12 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         pdf.cell(col_w, ch, name, ln=1, fill=True)
         pdf.set_font("Arial", "B", 8)
         pdf.set_x(x)
+        # Header row
         for h, w in [("Ingredient", 0.28), ("Qty/Batch", 0.24), ("Amount", 0.24), ("Batches", 0.24)]:
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
         pdf.set_font("Arial", "", 8)
+        # Ingredient rows
         for ing, qty in ingredients:
             pdf.set_x(x)
             pdf.cell(col_w * 0.28, ch, ing, 1)
