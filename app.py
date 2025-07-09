@@ -131,6 +131,32 @@ for r, checked in bulk_toggles.items():
             for ing in custom_meal_recipes[r]["sub_section"]["ingredients"].keys():
                 custom_meal_recipes[r]["sub_section"]["ingredients"][ing] = 0
 
+# --- PAGE 1: Draw Summary Table ---
+def draw_summary_section(pdf, edited_df, brand_names, report_date):
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, f"Meal Production Summary - {report_date}", ln=1, align='C')
+    pdf.ln(5)
+
+    # Table Header
+    pdf.set_font("Arial", "B", 10)
+    headers = ["Meal"] + brand_names + ["Total"]
+    col_widths = [70] + [25] * len(brand_names) + [30]
+    for h, w in zip(headers, col_widths):
+        pdf.cell(w, 8, h, 1, 0, 'C')
+    pdf.ln(8)
+
+    # Table Rows
+    pdf.set_font("Arial", "", 10)
+    for idx, row in edited_df.iterrows():
+        pdf.cell(col_widths[0], 8, str(row["Product name"]), 1)
+        for i, brand in enumerate(brand_names):
+            qty = row[brand] if brand in row else 0
+            pdf.cell(col_widths[i+1], 8, str(qty), 1)
+        pdf.cell(col_widths[-1], 8, str(row["Total"]), 1)
+        pdf.ln(8)
+    return pdf.get_y()
+
 # --- PDF Generation ---
 if st.button("Generate & Save Production Report PDF"):
     pdf = FPDF()
@@ -142,7 +168,12 @@ if st.button("Generate & Save Production Report PDF"):
     ch, pad, bottom = 6, 4, a4_h - 17
     xpos = [left, left + col_w + 10]
 
-    last_y = draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=selected_date_header)
+    # PAGE 1: Summary Table
+    draw_summary_section(pdf, edited_df, brand_names, selected_date_header)
+    last_y = pdf.get_y()
+
+    # Proceed with the rest as before
+    last_y = draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, header_date=selected_date_header)
     if not isinstance(last_y, (int, float)):
         last_y = pdf.get_y()
     pdf.set_y(last_y)
