@@ -77,22 +77,26 @@ all_products = sorted(set(p for df in dataframes for p in df["Product name"]))
 summary_data = []
 for p in all_products:
     row = {"Product name": p}
-    total = 0
     for i, df in enumerate(dataframes):
         brand = brand_names[i]
         qty = int(df.loc[df["Product name"]==p, "Quantity"].sum()) if p in df["Product name"].values else 0
         row[brand] = qty
-        total += qty
-    row["Total"] = total
     summary_data.append(row)
+
 summary_df = pd.DataFrame(summary_data)
-summary_df = summary_df[["Product name"] + brand_names + ["Total"]]
+if brand_names:
+    summary_df = summary_df[["Product name"] + brand_names]
+else:
+    summary_df = summary_df[["Product name"]]
 
 st.subheader("Step 4: Adjust Quantities (if needed)")
 edited_df = st.data_editor(
     summary_df, num_rows="dynamic", use_container_width=True,
-    column_config={b: {"width": 70} for b in brand_names + ["Total"]}
+    column_config={b: {"width": 70} for b in brand_names}
 )
+
+# --- Now dynamically recalculate the 'Total' after any edit ---
+edited_df["Total"] = edited_df[brand_names].sum(axis=1)
 meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
 
 # --- Previous Reports (history) ---
