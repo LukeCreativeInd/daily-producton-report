@@ -12,7 +12,6 @@ from chicken_mixing_section import draw_chicken_mixing_section
 from meat_veg_section import draw_meat_veg_section
 
 st.set_page_config(page_title="Production Report", layout="wide")
-
 st.title("📦 Production Report")
 
 # --- Upload Fields for 3 Brands ---
@@ -26,7 +25,6 @@ with col2:
 with col3:
     uploaded_files['Elite Meals'] = st.file_uploader("Elite Meals File", type=["csv", "xlsx"], key="elite_meals")
 
-# Allow any (but at least one) to proceed
 if not any(uploaded_files.values()):
     st.info("Upload at least one production file to begin.")
     st.stop()
@@ -95,7 +93,6 @@ edited_df = st.data_editor(
     summary_df, num_rows="dynamic", use_container_width=True,
     column_config={b: {"width": 70} for b in brand_names + ["Total"]}
 )
-# Update the meal_totals for downstream, use uppercase for safety
 meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
 
 # --- Previous Reports (history) ---
@@ -131,16 +128,28 @@ if st.button("Generate & Save Production Report PDF"):
     xpos = [left, left + col_w + 10]
 
     last_y = draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=selected_date_header)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
     pdf.set_y(last_y)
     last_y = draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes_override=custom_meal_recipes)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
     pdf.set_y(last_y)
     last_y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
     pdf.set_y(last_y)
     last_y = draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
     pdf.set_y(last_y)
     last_y = draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
     pdf.set_y(last_y)
     last_y = draw_meat_veg_section(pdf, meal_totals, custom_meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=last_y)
+    if not isinstance(last_y, (int, float)):
+        last_y = pdf.get_y()
 
     # Save to local history
     pdf_buffer = pdf.output(dest="S").encode("latin1")
