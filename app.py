@@ -133,7 +133,7 @@ if st.button("Generate & Save Production Report PDF"):
 
     last_y = draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=selected_date_header)
     pdf.set_y(last_y)
-    last_y = draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
+    last_y = draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes_override=custom_meal_recipes)
     pdf.set_y(last_y)
     last_y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
     pdf.set_y(last_y)
