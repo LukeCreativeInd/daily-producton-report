@@ -4,7 +4,7 @@ from fpdf import FPDF
 from datetime import datetime
 import os, copy, glob
 
-from bulk_section import draw_bulk_section
+from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
 from sauces_section import draw_sauces_section
 from fridge_section import draw_fridge_section
@@ -95,7 +95,7 @@ edited_df = st.data_editor(
     summary_df, num_rows="dynamic", use_container_width=True,
     column_config={b: {"width": 70} for b in brand_names + ["Total"]}
 )
-# Update the meal_totals for downstream
+# Update the meal_totals for downstream, use uppercase for safety
 meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
 
 # --- Previous Reports (history) ---
@@ -110,7 +110,6 @@ for fname in filtered_reports:
         st.download_button(f"Download {rname}", f, file_name=os.path.basename(fname), mime="application/pdf")
 
 # --- Patch meal_recipes for bulk-toggles ---
-import copy
 custom_meal_recipes = copy.deepcopy(meal_recipes)
 for r, checked in bulk_toggles.items():
     if checked and r in custom_meal_recipes:
@@ -135,13 +134,13 @@ if st.button("Generate & Save Production Report PDF"):
     pdf.set_y(last_y)
     last_y = draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes_override=custom_meal_recipes)
     pdf.set_y(last_y)
-    last_y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
+    last_y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
     pdf.set_y(last_y)
-    last_y = draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
+    last_y = draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
     pdf.set_y(last_y)
-    last_y = draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
+    last_y = draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y)
     pdf.set_y(last_y)
-    last_y = draw_meat_veg_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, meal_recipes=custom_meal_recipes)
+    last_y = draw_meat_veg_section(pdf, meal_totals, custom_meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=last_y)
 
     # Save to local history
     pdf_buffer = pdf.output(dest="S").encode("latin1")
