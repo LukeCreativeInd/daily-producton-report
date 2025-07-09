@@ -29,10 +29,7 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
     ]
     for sauce, qty, meal_key in sauces:
-        if sauce == "LEMON":
-            amt = 115
-        else:
-            amt = meal_totals.get(meal_key.upper(), 0)
+        amt = meal_totals.get(meal_key.upper(), 0)  # Fixed: Always use live grand total!
         total = qty * amt
         pdf.set_x(left_x)
         pdf.cell(col_w * 0.4, ch, sauce, 1)
