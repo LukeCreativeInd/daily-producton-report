@@ -6,14 +6,14 @@ meal_recipes = {
         "batch": 90,
         "ingredients": {
             "Beef Mince": 100, "Napoli Sauce": 65, "Crushed Tomatoes": 45, "Beef Stock": 30,
-            "Onion": 15, "Zucchini": 15, "Carrot": 15, "Vegetable Oil": 1, "Salt": 3, "Pepper": 1, "Spaghetti": 68
+            "Onion": 15, "Zucchini": 15, "Carrot": 15, "Vegetable Oil": 1, "Salt": 3, "Pepper": 1
         }
     },
     "Beef Chow Mein": {
         "batch": 80,
         "ingredients": {
             "Beef Mince": 120, "Celery": 42, "Carrot": 42, "Cabbage": 42, "Onion": 42,
-            "Oil": 2, "Pepper": 1, "Salt": 0.5, "Soy Sauce": 13, "Oyster Sauce": 13, "Rice": 130
+            "Oil": 2, "Pepper": 1, "Salt": 0.5, "Soy Sauce": 13, "Oyster Sauce": 13
         }
     },
     "Shepherd's Pie": {
@@ -154,15 +154,16 @@ meal_recipes = {
     }
 }
 
-def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes=None):
- if meal_recipes is None:
-  from recipes_section import meal_recipes  # fallback
+def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes_override=None):
+    # Use override if passed, otherwise use module-level variable
+    recipes = meal_recipes_override if meal_recipes_override is not None else meal_recipes
+
     pdf.set_y(start_y or pdf.get_y())
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meal Recipes", ln=1, align='C')
     pdf.ln(5)
     heights = [pdf.get_y(), pdf.get_y()]
-    for name, data in meal_recipes.items():
+    for name, data in recipes.items():
         main = len(data["ingredients"])
         sub = len(data.get("sub_section", {}).get("ingredients", {}))
         rows = 2 + main + (2 + sub if sub else 0)
