@@ -72,7 +72,7 @@ if not dataframes:
     st.warning("No valid data to process.")
     st.stop()
 
-# --- Editable merged summary table ---
+# --- Editable merged summary table (without Total) ---
 all_products = sorted(set(p for df in dataframes for p in df["Product name"]))
 summary_data = []
 for p in all_products:
@@ -82,7 +82,6 @@ for p in all_products:
         qty = int(df.loc[df["Product name"]==p, "Quantity"].sum()) if p in df["Product name"].values else 0
         row[brand] = qty
     summary_data.append(row)
-
 summary_df = pd.DataFrame(summary_data)
 if brand_names:
     summary_df = summary_df[["Product name"] + brand_names]
@@ -90,13 +89,25 @@ else:
     summary_df = summary_df[["Product name"]]
 
 st.subheader("Step 4: Adjust Quantities (if needed)")
+
+# Show editable table for brand columns only (no Total column yet)
 edited_df = st.data_editor(
-    summary_df, num_rows="dynamic", use_container_width=True,
-    column_config={b: {"width": 70} for b in brand_names}
+    summary_df,
+    num_rows="dynamic",
+    use_container_width=True,
+    column_config={b: {"width": 70} for b in brand_names},
+    key="editable_table"
 )
 
-# --- Now dynamically recalculate the 'Total' after any edit ---
-edited_df["Total"] = edited_df[brand_names].sum(axis=1)
+# --- Calculate and display the live Total column right below ---
+if brand_names:
+    edited_df["Total"] = edited_df[brand_names].sum(axis=1)
+else:
+    edited_df["Total"] = 0
+
+st.dataframe(edited_df[["Product name"] + brand_names + ["Total"]], use_container_width=True)
+
+# --- Use live totals for rest of the app ---
 meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
 
 # --- Previous Reports (history) ---
