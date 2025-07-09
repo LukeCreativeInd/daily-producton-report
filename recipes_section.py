@@ -154,7 +154,9 @@ meal_recipes = {
     }
 }
 
-def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
+def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes=None):
+ if meal_recipes is None:
+  from recipes_section import meal_recipes  # fallback
     pdf.set_y(start_y or pdf.get_y())
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meal Recipes", ln=1, align='C')
