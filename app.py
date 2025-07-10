@@ -3,6 +3,8 @@ import pandas as pd
 from fpdf import FPDF
 from datetime import datetime
 import os, copy, glob
+import requests
+import base64
 
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
@@ -13,6 +15,46 @@ from meat_veg_section import draw_meat_veg_section
 
 st.set_page_config(page_title="Production Report", layout="wide")
 st.title("📦 Production Report")
+
+# --- GitHub Repo Settings ---
+GITHUB_REPO = "LukeCreativeInd/kitchen_planner_test"
+GITHUB_FOLDER = "reports"
+
+def push_pdf_to_github(pdf_bytes, filename):
+    """Push PDF to GitHub using the API, saving to /reports/."""
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FOLDER}/{filename}"
+    github_token = st.secrets["GITHUB_TOKEN"]
+    b64_pdf = base64.b64encode(pdf_bytes).decode()
+    headers = {'Authorization': f'token {github_token}'}
+    # Check if file exists for update (gets SHA)
+    sha = None
+    r = requests.get(api_url, headers=headers)
+    if r.status_code == 200 and 'sha' in r.json():
+        sha = r.json()['sha']
+    data = {
+        "message": f"Add production report {filename}",
+        "content": b64_pdf,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+    resp = requests.put(api_url, headers=headers, json=data)
+    return resp.status_code in (200, 201)
+
+def list_reports_from_github():
+    """List all PDFs in /reports/ on GitHub."""
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FOLDER}"
+    github_token = st.secrets["GITHUB_TOKEN"]
+    headers = {'Authorization': f'token {github_token}'}
+    r = requests.get(api_url, headers=headers)
+    if r.status_code != 200:
+        return []
+    files = r.json()
+    # Only show PDFs
+    return [
+        {"name": f["name"], "download_url": f["download_url"]}
+        for f in files if f["name"].endswith(".pdf")
+    ]
 
 # --- Tabs Layout ---
 tab1, tab2 = st.tabs(["📥 Upload & Generate", "📄 Document History"])
@@ -190,22 +232,21 @@ with tab1:
         if not isinstance(last_y, (int, float)):
             last_y = pdf.get_y()
 
-        # Save to local history
-        os.makedirs("previous_reports", exist_ok=True)
+        # Save to GitHub
         pdf_buffer = pdf.output(dest="S").encode("latin1")
-        fname = f"previous_reports/daily_production_report_{selected_date_str}.pdf"
-        with open(fname, "wb") as f:
-            f.write(pdf_buffer)
-        st.success(f"Production report for {selected_date_header} saved!")
-        st.download_button("📄 Download Production Report PDF", pdf_buffer, file_name=f"daily_production_report_{selected_date_str}.pdf", mime="application/pdf")
+        pdf_filename = f"daily_production_report_{selected_date_str}.pdf"
+
+        if push_pdf_to_github(pdf_buffer, pdf_filename):
+            st.success(f"Production report for {selected_date_header} uploaded to GitHub!")
+        else:
+            st.warning("Could not upload report to GitHub.")
+
+        st.download_button("📄 Download Production Report PDF", pdf_buffer, file_name=pdf_filename, mime="application/pdf")
 
 with tab2:
-    st.subheader("Previous Production Reports")
-    os.makedirs("previous_reports", exist_ok=True)
-    existing_reports = sorted(glob.glob("previous_reports/daily_production_report_*.pdf"), reverse=True)
+    st.subheader("Previous Production Reports (from GitHub)")
+    files = list_reports_from_github()
     search = st.text_input("Search reports by date (yyyy-mm-dd) or meal")
-    filtered_reports = [f for f in existing_reports if search.lower() in f.lower()] if search else existing_reports
-    for fname in filtered_reports:
-        rname = os.path.basename(fname).replace("daily_production_report_", "").replace(".pdf", "")
-        with open(fname, "rb") as f:
-            st.download_button(f"Download {rname}", f, file_name=os.path.basename(fname), mime="application/pdf")
+    filtered_files = [f for f in files if search.lower() in f["name"].lower()] if search else files
+    for f in filtered_files:
+        st.markdown(f"- [{f['name']}]({f['download_url']})")
