@@ -251,8 +251,24 @@ with tab1:
 
 with tab2:
     st.subheader("Previous Production Reports (from GitHub)")
-    files = list_reports_from_github()
+
+    # Add a "Refresh" button
+    if st.button("🔄 Refresh History from GitHub"):
+        st.session_state["refresh_history"] = True
+
+    # Always fetch if page just loaded or if user pressed refresh
+    if "refresh_history" not in st.session_state:
+        st.session_state["refresh_history"] = True
+
+    files = []
+    if st.session_state["refresh_history"]:
+        files = list_reports_from_github()
+        st.session_state["refresh_history"] = False  # Reset after fetching
+
     search = st.text_input("Search reports by date (yyyy-mm-dd) or meal")
     filtered_files = [f for f in files if search.lower() in f["name"].lower()] if search else files
+    if not filtered_files:
+        st.info("No reports found. Click 'Refresh History from GitHub' if you just uploaded new files.")
     for f in filtered_files:
         st.markdown(f"- [{f['name']}]({f['download_url']})")
+
