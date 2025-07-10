@@ -252,25 +252,23 @@ with tab1:
 with tab2:
     st.subheader("Previous Production Reports (from GitHub)")
 
-    # Always fetch on first load (new device, tab, or browser)
-    if "reports_fetched" not in st.session_state:
-        st.session_state["reports_fetched"] = False
-
+    # Show the refresh button (always visible)
     refresh = st.button("🔄 Refresh History from GitHub")
 
-    # Fetch if first load or if user pressed refresh
-    if refresh or not st.session_state["reports_fetched"]:
+    # Always fetch if first load or after refresh
+    if "history_files" not in st.session_state or refresh:
         files = list_reports_from_github()
         st.session_state["history_files"] = files
-        st.session_state["reports_fetched"] = True
     else:
-        files = st.session_state.get("history_files", [])
+        files = st.session_state["history_files"]
 
     search = st.text_input("Search reports by date (yyyy-mm-dd) or meal")
     filtered_files = [f for f in files if search.lower() in f["name"].lower()] if search else files
+
     if not filtered_files:
         st.info("No reports found. Click 'Refresh History from GitHub' if you just uploaded new files.")
-    for f in filtered_files:
-        st.markdown(f"- [{f['name']}]({f['download_url']})")
+    else:
+        for f in filtered_files:
+            st.markdown(f"- [{f['name']}]({f['download_url']})")
 
 
