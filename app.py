@@ -39,6 +39,8 @@ def push_pdf_to_github(pdf_bytes, filename):
     if sha:
         data["sha"] = sha
     resp = requests.put(api_url, headers=headers, json=data)
+    if resp.status_code not in (200, 201):
+        st.error(f"GitHub upload failed: {resp.status_code} - {resp.text}")
     return resp.status_code in (200, 201)
 
 def list_reports_from_github():
@@ -79,6 +81,10 @@ with tab1:
     st.subheader("Step 2: Select Report Date")
     selected_date = st.date_input("Production Date", value=datetime.today())
     selected_date_str = selected_date.strftime('%Y-%m-%d')
+    # Add timestamp for uniqueness
+    now = datetime.now()
+    now_str = now.strftime('%H-%M-%S')
+
     selected_date_header = selected_date.strftime('%d/%m/%Y')
 
     # --- Bulk-prepared toggles ---
@@ -232,12 +238,12 @@ with tab1:
         if not isinstance(last_y, (int, float)):
             last_y = pdf.get_y()
 
-        # Save to GitHub
+        # Save to GitHub with unique name!
         pdf_buffer = pdf.output(dest="S").encode("latin1")
-        pdf_filename = f"daily_production_report_{selected_date_str}.pdf"
+        pdf_filename = f"daily_production_report_{selected_date_str}_{now_str}.pdf"
 
         if push_pdf_to_github(pdf_buffer, pdf_filename):
-            st.success(f"Production report for {selected_date_header} uploaded to GitHub!")
+            st.success(f"Production report for {selected_date_header} ({now_str}) uploaded to GitHub!")
         else:
             st.warning("Could not upload report to GitHub.")
 
