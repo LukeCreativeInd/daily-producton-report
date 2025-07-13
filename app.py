@@ -16,6 +16,36 @@ from meat_veg_section import draw_meat_veg_section
 st.set_page_config(page_title="Production Report", layout="wide")
 st.title("📦 Production Report")
 
+# --- Custom Summary Meal Order ---
+SUMMARY_MEAL_ORDER = [
+    "Spaghetti Bolognese",
+    "Beef Chow Mein",
+    "Shepherd's Pie",
+    "Beef Burrito Bowl",
+    "Beef Meatballs",
+    "Lebanese Beef Stew",
+    "Mongolian Beef",
+    "Chicken with Vegetables",
+    "Chicken with Sweet Potato and Beans",
+    "Naked Chicken Parma",
+    "Chicken Pesto Pasta",
+    "Chicken and Broccoli Pasta",
+    "Butter Chicken",
+    "Thai Green Chicken Curry",
+    "Moroccan Chicken",
+    "Steak with Mushroom Sauce",
+    "Creamy Chicken & Mushroom Gnocchi",
+    "Roasted Lemon Chicken & Potatoes",
+    "Beef Lasagna",
+    "Bean Nachos with Rice",
+    "Lamb Souvlaki",
+    "Chicken Fajita Bowl",
+    "Steak On Its Own",
+    "Chicken On Its Own",
+    "Family Mac and 3 Cheese Pasta Bake",
+    "Baked Family Lasagna"
+]
+
 # --- GitHub Repo Settings ---
 GITHUB_REPO = "LukeCreativeInd/kitchen_planner_test"
 GITHUB_FOLDER = "reports"
@@ -209,8 +239,14 @@ with tab1:
         ch, pad, bottom = 6, 4, a4_h - 17
         xpos = [left, left + col_w + 10]
 
-        # PAGE 1: Summary Table
-        draw_summary_section(pdf, edited_df, brand_names, selected_date_header)
+        # --- Sort summary table by custom meal order
+        edited_df["meal_order"] = edited_df["Product name"].apply(
+            lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
+        )
+        sorted_edited_df = edited_df.sort_values("meal_order").drop(columns=["meal_order"])
+
+        # PAGE 1: Summary Table (custom order)
+        draw_summary_section(pdf, sorted_edited_df, brand_names, selected_date_header)
         last_y = pdf.get_y()
 
         # Proceed with the rest as before
@@ -270,5 +306,3 @@ with tab2:
     else:
         for f in filtered_files:
             st.markdown(f"- [{f['name']}]({f['download_url']})")
-
-
