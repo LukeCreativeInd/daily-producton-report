@@ -85,4 +85,26 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         pdf.cell(col_w * 0.2, ch, str(parma_amt), 1)
         pdf.cell(col_w * 0.2, ch, str(total), 1)
         pdf.ln(ch)
+    parma_end_y = pdf.get_y()
+
+    # Table 4: Chicken Pesto Sundried (below Parma Mix)
+    sundried_start_y = parma_end_y + pad
+    pdf.set_xy(left_x, sundried_start_y)
+    pdf.set_font("Arial", "B", 11)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(col_w, ch, "Chicken Pesto Sundried", ln=1, fill=True)
+    pdf.set_x(left_x)
+    pdf.set_font("Arial", "B", 8)
+    for h, w in [("Ingredient", 0.4), ("Qty", 0.2), ("Meals", 0.2), ("Total", 0.2)]:
+        pdf.cell(col_w * w, ch, h, 1)
+    pdf.ln(ch)
+    pdf.set_font("Arial", "", 8)
+    pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0)
+    sundried_qty = 24
+    sundried_total = sundried_qty * pesto_meals
+    pdf.set_x(left_x)
+    pdf.cell(col_w * 0.4, ch, "Sundried Tomatos", 1)
+    pdf.cell(col_w * 0.2, ch, str(sundried_qty), 1)
+    pdf.cell(col_w * 0.2, ch, str(pesto_meals), 1)
+    pdf.cell(col_w * 0.2, ch, str(sundried_total), 1)
     return pdf.get_y() + pad
