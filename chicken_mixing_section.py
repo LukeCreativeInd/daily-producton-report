@@ -52,11 +52,12 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         pdf.set_font("Arial", "", 8)
         for ing, qty in ingredients:
             total = qty * amt
+            total_per_batch = math.ceil(total / batches) if batches else total
             pdf.set_x(x)
             pdf.cell(col_w * 0.22, ch, ing, 1)
             pdf.cell(col_w * 0.18, ch, str(qty), 1)
             pdf.cell(col_w * 0.18, ch, str(amt), 1)
-            pdf.cell(col_w * 0.21, ch, str(total), 1)
+            pdf.cell(col_w * 0.21, ch, str(total_per_batch), 1)
             pdf.cell(col_w * 0.21, ch, str(batches), 1)
             pdf.ln(ch)
         heights[col] = pdf.get_y() + pad
