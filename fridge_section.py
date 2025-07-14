@@ -16,7 +16,7 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
     pdf.cell(col_w, ch, "Sauces to Prepare", ln=1, fill=True)
     pdf.set_x(left_x)
     pdf.set_font("Arial", "B", 8)
-    for h, w in [("Sauce", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)]:
+    for h, w in [("Sauce", 0.32), ("Qty", 0.16), ("Amt", 0.16), ("Total", 0.18), ("Batches", 0.18)]:
         pdf.cell(col_w * w, ch, h, 1)
     pdf.ln(ch)
     pdf.set_font("Arial", "", 8)
@@ -29,36 +29,44 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
     ]
     for sauce, qty, meal_key in sauces:
-        amt = meal_totals.get(meal_key.upper(), 0)  # Fixed: Always use live grand total!
+        amt = meal_totals.get(meal_key.upper(), 0)
+        batches = math.ceil(amt / 60) if amt else 1
         total = qty * amt
+        total_per_batch = math.ceil(total / batches) if batches else total
         pdf.set_x(left_x)
-        pdf.cell(col_w * 0.4, ch, sauce, 1)
-        pdf.cell(col_w * 0.2, ch, str(qty), 1)
-        pdf.cell(col_w * 0.2, ch, str(amt), 1)
-        pdf.cell(col_w * 0.2, ch, str(total), 1)
+        pdf.cell(col_w * 0.32, ch, sauce, 1)
+        pdf.cell(col_w * 0.16, ch, str(qty), 1)
+        pdf.cell(col_w * 0.16, ch, str(amt), 1)
+        pdf.cell(col_w * 0.18, ch, str(total_per_batch), 1)
+        pdf.cell(col_w * 0.18, ch, str(batches), 1)
         pdf.ln(ch)
     left_end_y = pdf.get_y()
-    # Table 2: Beef Burrito Mix (right col)
+
+    # Table 2: Beef Burrito Mix (right col, updated)
     pdf.set_xy(right_x, left_y)
     pdf.set_font("Arial", "B", 11)
     pdf.set_fill_color(230, 230, 230)
     pdf.cell(col_w, ch, "Beef Burrito Mix", ln=1, fill=True)
     pdf.set_x(right_x)
     pdf.set_font("Arial", "B", 8)
-    for h, w in [("Ingredient", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)]:
+    for h, w in [("Ingredient", 0.25), ("Qty", 0.16), ("Amt", 0.16), ("Total", 0.21), ("Batches", 0.22)]:
         pdf.cell(col_w * w, ch, h, 1)
     pdf.ln(ch)
     pdf.set_font("Arial", "", 8)
     amt = meal_totals.get("BEEF BURRITO BOWL", 0)
+    batches = math.ceil(amt / 60) if amt else 1
     for ing, qty in [("Salsa", 43), ("Black Beans", 50), ("Corn", 50), ("Rice", 130)]:
         total = qty * amt
+        total_per_batch = math.ceil(total / batches) if batches else total
         pdf.set_x(right_x)
-        pdf.cell(col_w * 0.4, ch, ing, 1)
-        pdf.cell(col_w * 0.2, ch, str(qty), 1)
-        pdf.cell(col_w * 0.2, ch, str(amt), 1)
-        pdf.cell(col_w * 0.2, ch, str(total), 1)
+        pdf.cell(col_w * 0.25, ch, ing, 1)
+        pdf.cell(col_w * 0.16, ch, str(qty), 1)
+        pdf.cell(col_w * 0.16, ch, str(amt), 1)
+        pdf.cell(col_w * 0.21, ch, str(total_per_batch), 1)
+        pdf.cell(col_w * 0.22, ch, str(batches), 1)
         pdf.ln(ch)
     right_end_y = pdf.get_y()
+
     # Table 3: Parma Mix (below both)
     parma_start_y = max(left_end_y, right_end_y) + pad
     pdf.set_xy(left_x, parma_start_y)
