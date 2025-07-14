@@ -46,16 +46,18 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         pdf.cell(col_w, ch, name, ln=1, fill=True)
         pdf.set_font("Arial", "B", 8)
         pdf.set_x(x)
-        for h, w in [("Ingredient", 0.28), ("Qty/Batch", 0.24), ("Amount", 0.24), ("Batches", 0.24)]:
+        for h, w in [("Ingredient", 0.22), ("Qty/Batch", 0.18), ("Amount", 0.18), ("Total", 0.21), ("Batches", 0.21)]:
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
         pdf.set_font("Arial", "", 8)
         for ing, qty in ingredients:
+            total = qty * amt
             pdf.set_x(x)
-            pdf.cell(col_w * 0.28, ch, ing, 1)
-            pdf.cell(col_w * 0.24, ch, str(qty), 1)
-            pdf.cell(col_w * 0.24, ch, str(amt), 1)
-            pdf.cell(col_w * 0.24, ch, str(batches), 1)
+            pdf.cell(col_w * 0.22, ch, ing, 1)
+            pdf.cell(col_w * 0.18, ch, str(qty), 1)
+            pdf.cell(col_w * 0.18, ch, str(amt), 1)
+            pdf.cell(col_w * 0.21, ch, str(total), 1)
+            pdf.cell(col_w * 0.21, ch, str(batches), 1)
             pdf.ln(ch)
         heights[col] = pdf.get_y() + pad
 
