@@ -196,40 +196,50 @@ with tab1:
                 for ing in custom_meal_recipes[r]["sub_section"]["ingredients"].keys():
                     custom_meal_recipes[r]["sub_section"]["ingredients"][ing] = 0
 
-    # --- PAGE 1: Draw Summary Table with TOTAL row ---
+    # --- PAGE 1: Draw Summary Table with TOTAL row and proper column widths ---
     def draw_summary_section(pdf, edited_df, brand_names, report_date):
         pdf.add_page()
-        pdf.set_font("Arial", "B", 14)
-        pdf.cell(0, 10, f"Meal Production Summary - {report_date}", ln=1, align='C')
-        pdf.ln(5)
+        pdf.set_font("Arial", "B", 13)
+        pdf.cell(0, 9, f"Meal Production Summary - {report_date}", ln=1, align='C')
+        pdf.ln(3)
 
         # Table Header
-        pdf.set_font("Arial", "B", 10)
+        pdf.set_font("Arial", "B", 8)
+        n_brands = len(brand_names)
+        # Dynamic column widths
+        meal_col_w = 45  # main dish name
+        brand_col_w = 19  # per brand
+        already_made_col_w = 21
+        total_col_w = 22
+        col_widths = (
+            [meal_col_w] +
+            [brand_col_w] * n_brands +
+            [already_made_col_w, total_col_w]
+        )
         headers = ["Meal"] + brand_names + ["Already Made", "Total"]
-        col_widths = [70] + [25] * len(brand_names) + [30, 30]
         for h, w in zip(headers, col_widths):
-            pdf.cell(w, 8, h, 1, 0, 'C')
-        pdf.ln(8)
+            pdf.cell(w, 7, h, 1, 0, 'C')
+        pdf.ln(7)
 
         # Table Rows
-        pdf.set_font("Arial", "", 10)
+        pdf.set_font("Arial", "", 8)
         for idx, row in edited_df.iterrows():
-            pdf.cell(col_widths[0], 8, str(row["Product name"]), 1)
+            pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
             for i, brand in enumerate(brand_names):
                 qty = row[brand] if brand in row else 0
-                pdf.cell(col_widths[i+1], 8, str(qty), 1)
-            pdf.cell(col_widths[len(brand_names)+1], 8, str(row["Already Made"]), 1)
-            pdf.cell(col_widths[len(brand_names)+2], 8, str(row["Total"]), 1)
-            pdf.ln(8)
+                pdf.cell(col_widths[i+1], 6, str(qty), 1)
+            pdf.cell(col_widths[n_brands+1], 6, str(row["Already Made"]), 1)
+            pdf.cell(col_widths[n_brands+2], 6, str(row["Total"]), 1)
+            pdf.ln(6)
 
         # TOTAL row
-        pdf.set_font("Arial", "B", 10)
-        pdf.cell(col_widths[0], 8, "TOTAL", 1)
+        pdf.set_font("Arial", "B", 8)
+        pdf.cell(col_widths[0], 6, "TOTAL", 1)
         for i, brand in enumerate(brand_names):
-            pdf.cell(col_widths[i+1], 8, str(edited_df[brand].sum()), 1)
-        pdf.cell(col_widths[len(brand_names)+1], 8, str(edited_df["Already Made"].sum()), 1)
-        pdf.cell(col_widths[len(brand_names)+2], 8, str(edited_df["Total"].sum()), 1)
-        pdf.ln(8)
+            pdf.cell(col_widths[i+1], 6, str(edited_df[brand].sum()), 1)
+        pdf.cell(col_widths[n_brands+1], 6, str(edited_df["Already Made"].sum()), 1)
+        pdf.cell(col_widths[n_brands+2], 6, str(edited_df["Total"].sum()), 1)
+        pdf.ln(6)
         return pdf.get_y()
 
     # --- PDF Generation ---
