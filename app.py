@@ -51,12 +51,10 @@ GITHUB_REPO = "LukeCreativeInd/kitchen_planner_test"
 GITHUB_FOLDER = "reports"
 
 def push_pdf_to_github(pdf_bytes, filename):
-    """Push PDF to GitHub using the API, saving to /reports/."""
     api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FOLDER}/{filename}"
     github_token = st.secrets["GITHUB_TOKEN"]
     b64_pdf = base64.b64encode(pdf_bytes).decode()
     headers = {'Authorization': f'token {github_token}'}
-    # Check if file exists for update (gets SHA)
     sha = None
     r = requests.get(api_url, headers=headers)
     if r.status_code == 200 and 'sha' in r.json():
@@ -74,7 +72,6 @@ def push_pdf_to_github(pdf_bytes, filename):
     return resp.status_code in (200, 201)
 
 def list_reports_from_github():
-    """List all PDFs in /reports/ on GitHub."""
     api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FOLDER}"
     github_token = st.secrets["GITHUB_TOKEN"]
     headers = {'Authorization': f'token {github_token}'}
@@ -82,7 +79,6 @@ def list_reports_from_github():
     if r.status_code != 200:
         return []
     files = r.json()
-    # Only show PDFs
     return [
         {"name": f["name"], "download_url": f["download_url"]}
         for f in files if f["name"].endswith(".pdf")
@@ -92,7 +88,6 @@ def list_reports_from_github():
 tab1, tab2 = st.tabs(["📥 Upload & Generate", "📄 Document History"])
 
 with tab1:
-    # --- Upload Fields for 3 Brands ---
     st.subheader("Step 1: Upload Production Files")
     uploaded_files = {}
     col1, col2, col3 = st.columns(3)
@@ -107,17 +102,13 @@ with tab1:
         st.info("Upload at least one production file to begin.")
         st.stop()
 
-    # --- Date Selector ---
     st.subheader("Step 2: Select Report Date")
     selected_date = st.date_input("Production Date", value=datetime.today())
     selected_date_str = selected_date.strftime('%Y-%m-%d')
-    # Add timestamp for uniqueness
     now = datetime.now()
     now_str = now.strftime('%H-%M-%S')
-
     selected_date_header = selected_date.strftime('%d/%m/%Y')
 
-    # --- Bulk-prepared toggles ---
     st.subheader("Step 3: Bulk-Prepared Recipe Toggles")
     BULK_RECIPES = [
         "Spaghetti Bolognese",
@@ -146,7 +137,7 @@ with tab1:
             df = df[["Product name", "Quantity"]]
             df["Product name"] = df["Product name"].astype(str).str.strip()
             df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0).astype(int)
-            df = df.groupby("Product name", as_index=False).sum()  # Remove accidental dups
+            df = df.groupby("Product name", as_index=False).sum()
             dataframes.append(df)
             brand_names.append(brand)
 
@@ -154,7 +145,7 @@ with tab1:
         st.warning("No valid data to process.")
         st.stop()
 
-    # --- Editable merged summary table (without Total) ---
+    # --- Editable merged summary table with Already Made column ---
     all_products = sorted(set(p for df in dataframes for p in df["Product name"]))
     summary_data = []
     for p in all_products:
@@ -163,31 +154,34 @@ with tab1:
             brand = brand_names[i]
             qty = int(df.loc[df["Product name"]==p, "Quantity"].sum()) if p in df["Product name"].values else 0
             row[brand] = qty
+        row["Already Made"] = 0
         summary_data.append(row)
     summary_df = pd.DataFrame(summary_data)
     if brand_names:
-        summary_df = summary_df[["Product name"] + brand_names]
+        summary_df = summary_df[["Product name"] + brand_names + ["Already Made"]]
     else:
-        summary_df = summary_df[["Product name"]]
+        summary_df = summary_df[["Product name", "Already Made"]]
 
     st.subheader("Step 4: Adjust Quantities (if needed)")
 
-    # Show editable table for brand columns only (no Total column yet)
+    # Show editable table (user can enter Already Made)
     edited_df = st.data_editor(
         summary_df,
         num_rows="dynamic",
         use_container_width=True,
-        column_config={b: {"width": 70} for b in brand_names},
+        column_config={b: {"width": 70} for b in brand_names + ["Already Made"]},
         key="editable_table"
     )
 
     # --- Calculate and display the live Total column right below ---
     if brand_names:
-        edited_df["Total"] = edited_df[brand_names].sum(axis=1)
+        edited_df["Total"] = (
+            edited_df[brand_names].sum(axis=1) - edited_df["Already Made"]
+        ).clip(lower=0)
     else:
         edited_df["Total"] = 0
 
-    st.dataframe(edited_df[["Product name"] + brand_names + ["Total"]], use_container_width=True)
+    st.dataframe(edited_df[["Product name"] + brand_names + ["Already Made", "Total"]], use_container_width=True)
 
     # --- Use live totals for rest of the app ---
     meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
@@ -202,7 +196,7 @@ with tab1:
                 for ing in custom_meal_recipes[r]["sub_section"]["ingredients"].keys():
                     custom_meal_recipes[r]["sub_section"]["ingredients"][ing] = 0
 
-    # --- PAGE 1: Draw Summary Table ---
+    # --- PAGE 1: Draw Summary Table with TOTAL row ---
     def draw_summary_section(pdf, edited_df, brand_names, report_date):
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
@@ -211,8 +205,8 @@ with tab1:
 
         # Table Header
         pdf.set_font("Arial", "B", 10)
-        headers = ["Meal"] + brand_names + ["Total"]
-        col_widths = [70] + [25] * len(brand_names) + [30]
+        headers = ["Meal"] + brand_names + ["Already Made", "Total"]
+        col_widths = [70] + [25] * len(brand_names) + [30, 30]
         for h, w in zip(headers, col_widths):
             pdf.cell(w, 8, h, 1, 0, 'C')
         pdf.ln(8)
@@ -224,8 +218,18 @@ with tab1:
             for i, brand in enumerate(brand_names):
                 qty = row[brand] if brand in row else 0
                 pdf.cell(col_widths[i+1], 8, str(qty), 1)
-            pdf.cell(col_widths[-1], 8, str(row["Total"]), 1)
+            pdf.cell(col_widths[len(brand_names)+1], 8, str(row["Already Made"]), 1)
+            pdf.cell(col_widths[len(brand_names)+2], 8, str(row["Total"]), 1)
             pdf.ln(8)
+
+        # TOTAL row
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(col_widths[0], 8, "TOTAL", 1)
+        for i, brand in enumerate(brand_names):
+            pdf.cell(col_widths[i+1], 8, str(edited_df[brand].sum()), 1)
+        pdf.cell(col_widths[len(brand_names)+1], 8, str(edited_df["Already Made"].sum()), 1)
+        pdf.cell(col_widths[len(brand_names)+2], 8, str(edited_df["Total"].sum()), 1)
+        pdf.ln(8)
         return pdf.get_y()
 
     # --- PDF Generation ---
@@ -245,11 +249,8 @@ with tab1:
         )
         sorted_edited_df = edited_df.sort_values("meal_order").drop(columns=["meal_order"])
 
-        # PAGE 1: Summary Table (custom order)
         draw_summary_section(pdf, sorted_edited_df, brand_names, selected_date_header)
         last_y = pdf.get_y()
-
-        # Proceed with the rest as before
         last_y = draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=last_y, header_date=selected_date_header)
         if not isinstance(last_y, (int, float)):
             last_y = pdf.get_y()
@@ -274,7 +275,6 @@ with tab1:
         if not isinstance(last_y, (int, float)):
             last_y = pdf.get_y()
 
-        # Save to GitHub with unique name!
         pdf_buffer = pdf.output(dest="S").encode("latin1")
         pdf_filename = f"daily_production_report_{selected_date_str}_{now_str}.pdf"
 
@@ -288,10 +288,7 @@ with tab1:
 with tab2:
     st.subheader("Previous Production Reports (from GitHub)")
 
-    # Show the refresh button (always visible)
     refresh = st.button("🔄 Refresh History from GitHub")
-
-    # Always fetch if first load or after refresh
     if "history_files" not in st.session_state or refresh:
         files = list_reports_from_github()
         st.session_state["history_files"] = files
