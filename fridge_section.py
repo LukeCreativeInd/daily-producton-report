@@ -100,7 +100,7 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
     pdf.ln(ch)
     pdf.set_font("Arial", "", 8)
     pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0)
-    sundried_qty = 24
+    sundried_qty = 20
     sundried_total = sundried_qty * pesto_meals
     pdf.set_x(left_x)
     pdf.cell(col_w * 0.4, ch, "Sundried Tomatos", 1)
