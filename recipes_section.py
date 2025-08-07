@@ -80,7 +80,7 @@ meal_recipes = {
         }
     },
     "Butter Chicken": {
-        "batch": 0,
+        "batch": 60,
         "ingredients": {
             "Chicken": 140, "Peas": 40, "Rice": 130
         }
