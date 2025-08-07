@@ -52,7 +52,7 @@ meal_recipes = {
     "Chicken With Vegetables": {
         "batch": 60,
         "ingredients": {
-            "Chicken": 135, "Corn": 52, "Beans": 60, "Broccoli": 67
+            "Chicken": 135, "Corn": 50, "Beans": 60, "Broccoli": 67
         }
     },
     "Chicken with Sweet Potato and Beans": {
@@ -70,7 +70,7 @@ meal_recipes = {
     "Chicken Pesto Pasta": {
         "batch": 0,
         "ingredients": {
-            "Chicken": 130, "Penne": 59, "Sundried Tomatoes": 24
+            "Chicken": 130, "Penne": 59, "Sundried Tomatoes": 20
         }
     },
     "Chicken and Broccoli Pasta": {
