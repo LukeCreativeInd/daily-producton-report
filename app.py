@@ -477,14 +477,24 @@ with tab3:
                         df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
                     else:
                         continue
-                dfs.append(df[["Product name","Total"]])
+                if "Already Made" not in df.columns:
+                df["Already Made"] = 0
+            dfs.append(df[["Product name","Already Made","Total"]])
 
             if missing:
                 st.warning("Missing CSV for:\n\n- " + "\n- ".join(missing))
 
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
-                weekly_df = merged.groupby("Product name", as_index=False)["Total"].sum()
+                weekly_df = merged.groupby("Product name", as_index=False).sum(numeric_only=True)
+                # Keep only expected columns in order
+                keep_cols = [c for c in ["Product name","Already Made","Total"] if c in weekly_df.columns]
+                weekly_df = weekly_df[keep_cols]
+                # If Already Made was missing in some, ensure column exists
+                if "Already Made" not in weekly_df.columns:
+                    weekly_df["Already Made"] = 0
+                if "Total" not in weekly_df.columns:
+                    weekly_df["Total"] = 0
                 weekly_df["Adjustments"] = 0
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
                     lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
@@ -500,14 +510,14 @@ with tab3:
                 )
                 edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
 
-                st.dataframe(edited_weekly[["Product name","Total","Adjustments","Final Total"]], use_container_width=True)
+                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], use_container_width=True)
 
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
 
-                    out_df = edited_weekly[["Product name", "Adjustments", "Final Total"]].copy()
-                    out_df = out_df.rename(columns={"Adjustments": "Already Made", "Final Total": "Total"})
+                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
+                    out_df = out_df.rename(columns={"Final Total": "Total"})
                     out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
                     out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
 
@@ -575,14 +585,14 @@ with tab3:
                 )
                 edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
 
-                st.dataframe(edited_weekly[["Product name","Total","Adjustments","Final Total"]], use_container_width=True)
+                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], use_container_width=True)
 
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
 
-                    out_df = edited_weekly[["Product name", "Adjustments", "Final Total"]].copy()
-                    out_df = out_df.rename(columns={"Adjustments": "Already Made", "Final Total": "Total"})
+                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
+                    out_df = out_df.rename(columns={"Final Total": "Total"})
                     out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
                     out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
 
