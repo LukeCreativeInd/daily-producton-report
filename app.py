@@ -62,8 +62,6 @@ def _push_bytes_to_github(file_bytes: bytes, path: str, message: str) -> bool:
         data["sha"] = sha
 
     resp = requests.put(api_url, headers=headers, json=data)
-    if resp.status_code not in (200, 201):
-        st.error(f"GitHub upload failed: {resp.status_code} - {resp.text}")
     return resp.status_code in (200, 201)
 
 def push_pdf_to_github(pdf_bytes: bytes, filename: str, weekly: bool = False) -> bool:
@@ -141,15 +139,14 @@ def draw_summary_section(pdf, df, brand_names, report_title):
 
 def parse_daily_filename(name: str):
     """
-    'daily_production_report_2025-07-13_23-40-06.pdf' ->
-    (date_str '2025-07-13', time_str '23-40-06')
+    'daily_production_report_2025-07-13_23-40-06.pdf' -> (date_str, time_str)
     """
     try:
         base = name.replace("daily_production_report_", "").replace(".pdf", "")
         d, t = base.split("_", 1)
-        # quick sanity check
+        # sanity check
         datetime.strptime(d, "%Y-%m-%d")
-        _ = datetime.strptime(t, "%H-%M-%S")
+        datetime.strptime(t, "%H-%M-%S")
         return d, t
     except Exception:
         return None, None
@@ -158,19 +155,17 @@ def human_label_from_filename(name: str):
     d, t = parse_daily_filename(name)
     if not d or not t:
         return name
-    # cross-platform (no %-I). We'll strip any leading zero on 12h clock manually.
     try:
         dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
         label = dt.strftime("%d/%m/%Y %I:%M %p")
-        # remove leading zero from hour
-        if label[11] == "0":
+        if label[11] == "0":  # strip leading zero in hour for nicer look
             label = label[:11] + label[12:]
         return f"Daily Report — {label}"
     except Exception:
         return name
 
 def month_group_key(name: str):
-    """Return (year, month) as ints; fallback to (-1, -1) for unknowns so sorting never crashes."""
+    """Return (year, month) ints; fallback (-1, -1) for unknowns so sorting never crashes."""
     d, _ = parse_daily_filename(name)
     if not d:
         return (-1, -1)
@@ -317,15 +312,8 @@ with tab1:
             pdf_name = f"daily_production_report_{selected_date_str}_{now_str}.pdf"
             csv_name = f"daily_production_report_{selected_date_str}_{now_str}.csv"
 
-            ok_pdf = push_pdf_to_github(pdf_bytes, pdf_name, weekly=False)
-            ok_csv = push_csv_to_github(edited_df[["Product name"] + brand_names + ["Already Made","Total"]], csv_name)
-
-            if ok_pdf and ok_csv:
-                st.success(f"Uploaded PDF + CSV for {selected_date.strftime('%d/%m/%Y')} ({now_str})")
-            elif ok_pdf:
-                st.warning("PDF uploaded, but CSV failed.")
-            else:
-                st.error("Could not upload the daily report.")
+            push_pdf_to_github(pdf_bytes, pdf_name, weekly=False)
+            push_csv_to_github(edited_df[["Product name"] + brand_names + ["Already Made","Total"]], csv_name)
 
             st.download_button("📄 Download Production Report PDF", pdf_bytes, file_name=pdf_name, mime="application/pdf")
 
@@ -333,8 +321,9 @@ with tab1:
 with tab2:
     st.subheader("Previous Production Reports")
 
-    # Daily
     colh1, colh2 = st.columns(2)
+
+    # ----- Daily -----
     with colh1:
         st.markdown("**Daily Reports**")
         refresh_daily = st.button("🔄 Refresh Daily History")
@@ -347,12 +336,12 @@ with tab2:
             daily_files = [f for f in daily_files if daily_search.lower() in f["name"].lower()]
 
         # group by month
-        groups: dict[tuple[int,int], list] = {}
+        groups = {}
         for f in daily_files:
             key = month_group_key(f["name"])
             groups.setdefault(key, []).append(f)
 
-        # sort groups by (year, month) desc; (-1,-1) will naturally sink to the bottom
+        # sort groups by (year, month) desc; (-1,-1) sinks to bottom
         sorted_groups = sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
 
         # current month open by default
@@ -379,12 +368,13 @@ with tab2:
                     for f in files_sorted:
                         st.link_button(human_label_from_filename(f["name"]), f["download_url"])
 
-    # Weekly
+    # ----- Weekly -----
     with colh2:
         st.markdown("**Weekly Reports**")
         refresh_weekly = st.button("🔄 Refresh Weekly History")
         if "history_weekly" not in st.session_state or refresh_weekly:
             st.session_state["history_weekly"] = list_files_from_github(GITHUB_WEEKLY_PDF)
+
         weekly_files = st.session_state.get("history_weekly", []) or []
         weekly_search = st.text_input("Search weekly (yyyy-mm-dd or text)", key="weekly_search")
         if weekly_search:
@@ -397,7 +387,7 @@ with tab2:
                 n = f["name"].replace("weekly_summary_", "").replace(".pdf", "")
                 try:
                     rng, tm = n.rsplit("_", 1)
-                    start, _, end = rng.partition("_to_")
+                    _start, _, end = rng.partition("_to_")
                     dt = datetime.strptime(end + " " + tm, "%Y-%m-%d %H-%M-%S")
                     return dt
                 except Exception:
@@ -412,32 +402,14 @@ with tab3:
 
     tabs_week = st.tabs(["From existing reports (recommended)", "From file uploads"])
 
-    # ----- A) FROM EXISTING REPORTS -----
+    # ---- From existing reports ----
     with tabs_week[0]:
-        st.caption("Pick any daily reports below — the app will fetch their paired CSVs from the repo automatically.")
+        st.caption("Pick a week, then choose daily reports in that range — I’ll fetch their paired CSVs automatically.")
 
-        # ensure we have the latest list
-        if "history_daily" not in st.session_state:
-            st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
-        daily_files = st.session_state["history_daily"] or []
-
-        # Pretty labels for multiselect
-        options = []
-        label_map = {}
-        for f in sorted(daily_files, key=lambda x: x["name"]):
-            label = human_label_from_filename(f["name"])
-            options.append(f["name"])
-            label_map[f["name"]] = label
-
-        selected_reports = st.multiselect(
-            "Choose daily reports to include",
-            options=options,
-            format_func=lambda n: label_map.get(n, n)
-        )
-
+        # Week selector first (also used as filter)
         today = date.today()
-        default_start = today - timedelta(days=today.weekday())
-        default_end = default_start + timedelta(days=6)
+        default_start = today - timedelta(days=today.weekday())   # Monday
+        default_end = default_start + timedelta(days=6)           # Sunday
 
         c1, c2 = st.columns(2)
         with c1:
@@ -445,34 +417,64 @@ with tab3:
         with c2:
             week_end = st.date_input("Week end", value=default_end, key="week_end_existing")
 
+        # Get list of daily PDFs (cached in session)
+        if "history_daily" not in st.session_state:
+            st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
+        all_daily = st.session_state["history_daily"] or []
+
+        # Helper to parse datetime from file name
+        def _daily_dt(name: str) -> datetime | None:
+            d, t = parse_daily_filename(name)
+            if not d or not t:
+                return None
+            try:
+                return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
+            except Exception:
+                return None
+
+        # Filter to selected week range (inclusive)
+        start_dt = datetime.combine(week_start, datetime.min.time())
+        end_dt = datetime.combine(week_end, datetime.max.time())
+        in_range = [f for f in all_daily if (dt := _daily_dt(f["name"])) and start_dt <= dt <= end_dt]
+
+        # Pretty labels for multiselect
+        in_range_sorted = sorted(in_range, key=lambda f: _daily_dt(f["name"]) or datetime.min, reverse=True)
+        options = [f["name"] for f in in_range_sorted]
+        label_map = {f["name"]: human_label_from_filename(f["name"]) for f in in_range_sorted}
+
+        st.write(f"**Reports found in range:** {len(options)}")
+        selected_reports = st.multiselect(
+            "Choose daily reports to include",
+            options=options,
+            format_func=lambda n: label_map.get(n, n),
+            key="weekly_existing_choice"
+        )
+
+        # Build weekly table from paired CSVs
         if selected_reports:
-            # Load paired CSVs
-            dfs = []
-            missing = []
+            dfs, missing = [], []
             for n in selected_reports:
                 base = n.replace(".pdf", ".csv")
                 csv_path = f"{GITHUB_DAILY_CSV}/{base}"
                 df = fetch_csv_from_github(csv_path)
                 if df is None:
                     missing.append(base)
-                else:
-                    # normalise expected columns
-                    needed = {"Product name","Total"}
-                    if not needed.issubset(df.columns):
-                        brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
-                        if brand_cols:
-                            df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
-                        else:
-                            continue
-                    df = df[["Product name","Total"]]
-                    dfs.append(df)
+                    continue
+                need = {"Product name", "Total"}
+                if not need.issubset(df.columns):
+                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
+                    if brand_cols:
+                        df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
+                    else:
+                        continue
+                dfs.append(df[["Product name","Total"]])
 
             if missing:
                 st.warning("Missing CSV for:\n\n- " + "\n- ".join(missing))
 
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
-                weekly_df = merged.groupby("Product name", as_index=False)["Total"].sum().rename(columns={"Total":"Total"})
+                weekly_df = merged.groupby("Product name", as_index=False)["Total"].sum()
                 weekly_df["Adjustments"] = 0
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
                     lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
@@ -493,14 +495,10 @@ with tab3:
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
-
-                    out_df = edited_weekly.rename(columns={"Final Total":"Total"})
+                    out_df = edited_weekly.rename(columns={"Final Total": "Total"})
                     out_df.insert(1, "Already Made", out_df["Adjustments"])
-                    brand_cols = []  # none for weekly
-
-                    pdf_title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
-                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], brand_cols, pdf_title)
-
+                    title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
+                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
                     buf = pdf.output(dest="S").encode("latin1")
                     fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{datetime.now().strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(buf, fname, weekly=True):
@@ -509,22 +507,22 @@ with tab3:
                         st.warning("Could not upload weekly summary.")
                     st.download_button("📄 Download Weekly Summary PDF", buf, file_name=fname, mime="application/pdf")
         else:
-            st.info("Select one or more daily reports above to build a weekly summary.")
+            st.info("Pick your week above — reports in that range will appear here to select.")
 
-    # ----- B) FROM FILE UPLOADS (kept for flexibility) -----
+    # ---- From file uploads (kept for flexibility) ----
     with tabs_week[1]:
         st.caption("Optional: upload raw CSV/XLSX files from the week (any brand/day).")
         week_files = st.file_uploader("Weekly files", type=["csv","xlsx"], accept_multiple_files=True, key="weekly_files_upload")
 
-        today = date.today()
-        default_start = today - timedelta(days=today.weekday())
-        default_end = default_start + timedelta(days=6)
+        today2 = date.today()
+        default_start2 = today2 - timedelta(days=today2.weekday())
+        default_end2 = default_start2 + timedelta(days=6)
 
         c1, c2 = st.columns(2)
         with c1:
-            week_start = st.date_input("Week start", value=default_start, key="week_start_upload")
+            week_start2 = st.date_input("Week start", value=default_start2, key="week_start_upload")
         with c2:
-            week_end = st.date_input("Week end", value=default_end, key="week_end_upload")
+            week_end2 = st.date_input("Week end", value=default_end2, key="week_end_upload")
 
         if week_files:
             dfs = []
@@ -566,16 +564,12 @@ with tab3:
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
-
                     out_df = edited_weekly.rename(columns={"Final Total":"Total"})
                     out_df.insert(1, "Already Made", out_df["Adjustments"])
-                    brand_cols = []
-
-                    pdf_title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
-                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], brand_cols, pdf_title)
-
+                    title = f"Weekly Meal Summary - {week_start2.strftime('%d/%m/%Y')} to {week_end2.strftime('%d/%m/%Y')}"
+                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
                     buf = pdf.output(dest="S").encode("latin1")
-                    fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{datetime.now().strftime('%H-%M-%S')}.pdf"
+                    fname = f"weekly_summary_{week_start2.strftime('%Y-%m-%d')}_to_{week_end2.strftime('%Y-%m-%d')}_{datetime.now().strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(buf, fname, weekly=True):
                         st.success("Weekly summary uploaded to GitHub!")
                     else:
