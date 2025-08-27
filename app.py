@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
@@ -7,6 +8,7 @@ import requests
 import base64
 import math
 import calendar
+from zoneinfo import ZoneInfo
 
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
@@ -18,6 +20,9 @@ from meat_veg_section import draw_meat_veg_section
 # ---------- Page ----------
 st.set_page_config(page_title="Production Report", layout="wide")
 st.title("📦 Production Report")
+
+# ---------- Timezone ----------
+LOCAL_TZ = ZoneInfo("Australia/Melbourne")
 
 # ---------- Constants ----------
 SUMMARY_MEAL_ORDER = [
@@ -162,15 +167,13 @@ def parse_daily_filename(name: str):
         return None, None
 
 def human_label_from_filename(name: str):
-    d, t = parse_daily_filename(name)
-    if not d or not t:
+    # AU date, NO time
+    d, _t = parse_daily_filename(name)
+    if not d:
         return name
     try:
-        dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
-        label = dt.strftime("%d/%m/%Y %I:%M %p")
-        if label[11] == "0":  # strip leading zero in hour
-            label = label[:11] + label[12:]
-        return f"Daily Report — {label}"
+        dt = datetime.strptime(d, "%Y-%m-%d")
+        return f"Daily Report — {dt.strftime('%d/%m/%Y')}"
     except Exception:
         return name
 
@@ -179,7 +182,7 @@ def month_group_key(name: str):
     if not d:
         return (-1, -1)
     try:
-        y, m, _ = d.split("-")
+        y, m, _day = d.split("-")
         return (int(y), int(m))
     except Exception:
         return (-1, -1)
@@ -188,6 +191,17 @@ def month_label(year: int, month: int):
     if year == -1 and month == -1:
         return "Other"
     return f"{calendar.month_name[month]} {year}"
+
+def weekly_pretty_label(name: str) -> str:
+    n = name.replace("weekly_summary_", "").replace(".pdf", "")
+    try:
+        rng, _tm = n.rsplit("_", 1)
+        start, _, end = rng.partition("_to_")
+        d1 = datetime.strptime(start, "%Y-%m-%d").strftime("%d/%m/%Y")
+        d2 = datetime.strptime(end,   "%Y-%m-%d").strftime("%d/%m/%Y")
+        return f"Weekly Summary — {d1} to {d2}"
+    except Exception:
+        return name
 
 # ---------- Tabs ----------
 tab1, tab2, tab3 = st.tabs(["📥 Upload & Generate", "📄 Document History", "📆 Weekly Summary"])
@@ -202,9 +216,9 @@ with tab1:
     with col3: uploaded_files['Elite Meals'] = st.file_uploader("Elite Meals File", type=["csv", "xlsx"], key="elite_meals")
 
     st.subheader("Step 2: Select Report Date")
-    selected_date = st.date_input("Production Date", value=datetime.today())
+    selected_date = st.date_input("Production Date", value=datetime.now(LOCAL_TZ))
     selected_date_str = selected_date.strftime('%Y-%m-%d')
-    now = datetime.now()
+    now = datetime.now(LOCAL_TZ)
     now_str = now.strftime('%H-%M-%S')
 
     st.subheader("Step 3: Bulk-Prepared Recipe Toggles")
@@ -223,10 +237,10 @@ with tab1:
                 st.error(f"{brand} failed to read: {e}")
                 continue
             df.columns = df.columns.str.strip()
-            if not {"Product name","Quantity"}.issubset(df.columns):
+            if not {"Product name", "Quantity"}.issubset(df.columns):
                 st.error(f"{brand} file must have 'Product name' and 'Quantity'")
                 continue
-            df = df[["Product name","Quantity"]]
+            df = df[["Product name", "Quantity"]]
             df["Product name"] = df["Product name"].astype(str).str.strip()
             df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0).astype(int)
             df = df.groupby("Product name", as_index=False).sum()
@@ -241,7 +255,7 @@ with tab1:
         for p in all_products:
             row = {"Product name": p, "Already Made": 0}
             for i, df in enumerate(dataframes):
-                row[brand_names[i]] = int(df.loc[df["Product name"]==p,"Quantity"].sum()) if p in df["Product name"].values else 0
+                row[brand_names[i]] = int(df.loc[df["Product name"]==p, "Quantity"].sum()) if p in df["Product name"].values else 0
             rows.append(row)
         summary_df = pd.DataFrame(rows)
         if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
@@ -314,8 +328,8 @@ with tab2:
         sorted_groups = sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
 
         # current month open by default
-        today = datetime.today()
-        current_key = (today.year, today.month)
+        today_dt = datetime.now(LOCAL_TZ)
+        current_key = (today_dt.year, today_dt.month)
 
         if not sorted_groups:
             st.info("No daily reports found.")
@@ -328,7 +342,7 @@ with tab2:
 
                     # sort by date/time desc using parsed timestamp
                     def ts(f):
-                        d, t = parse_daily_filename(f["name"])
+                        d, t = parse_daily_filename(f["name'])
                         try:
                             return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S") if d and t else datetime.min
                         except Exception:
@@ -340,7 +354,6 @@ with tab2:
                         with c1:
                             st.link_button(human_label_from_filename(f["name"]), f["download_url"], use_container_width=True)
                         with c2:
-                            # Small confirm checkbox to avoid accidental deletions
                             confirm = st.checkbox("Confirm", key=f"confirm_daily_{f['name']}")
                             if st.button("🗑 Delete", key=f"del_daily_{f['name']}", type="secondary", disabled=not confirm, use_container_width=True):
                                 pdf_path = f"{GITHUB_DAILY_PDF}/{f['name']}"
@@ -350,7 +363,6 @@ with tab2:
                                 ok_csv = delete_file_from_github(csv_path, "Delete paired daily CSV")
                                 if ok_pdf:
                                     st.success("Deleted.")
-                                    # refresh the cache
                                     st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
                                     st.rerun()
                                 else:
@@ -371,7 +383,6 @@ with tab2:
         if not weekly_files:
             st.info("No weekly reports found.")
         else:
-            # newest first
             def wts(f):
                 n = f["name"].replace("weekly_summary_", "").replace(".pdf", "")
                 try:
@@ -386,7 +397,7 @@ with tab2:
             for f in weekly_sorted:
                 c1, c2 = st.columns([0.8, 0.2])
                 with c1:
-                    st.link_button(f["name"].replace("_", " ").replace(".pdf",""), f["download_url"], use_container_width=True)
+                    st.link_button(weekly_pretty_label(f["name"]), f["download_url"], use_container_width=True)
                 with c2:
                     confirm = st.checkbox("Confirm", key=f"confirm_weekly_{f['name']}")
                     if st.button("🗑 Delete", key=f"del_weekly_{f['name']}", type="secondary", disabled=not confirm, use_container_width=True):
@@ -403,11 +414,11 @@ with tab2:
 with tab3:
     st.subheader("Build a Weekly Summary")
 
-    tabs_week = st.tabs(["From existing reports", "From file uploads"])
+    tabs_week = st.tabs(["From existing reports (recommended)", "From file uploads"])
 
     # ---- From existing reports ----
     with tabs_week[0]:
-        st.caption("Pick a week, then choose daily reports in that range")
+        st.caption("Pick a week, then choose daily reports in that range — I’ll fetch their paired CSVs automatically.")
 
         # Week selector first (also used as filter)
         today = date.today()
@@ -465,7 +476,7 @@ with tab3:
                     continue
                 need = {"Product name", "Total"}
                 if not need.issubset(df.columns):
-                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
+                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total") ]
                     if brand_cols:
                         df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
                     else:
@@ -498,12 +509,19 @@ with tab3:
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
-                    out_df = edited_weekly.rename(columns={"Final Total": "Total"})
-                    out_df.insert(1, "Already Made", out_df["Adjustments"])
+
+                    # Build a clean dataframe with NO duplicate 'Total' column
+                    out_df = edited_weekly[["Product name", "Adjustments", "Final Total"]].copy()
+                    out_df = out_df.rename(columns={"Adjustments": "Already Made", "Final Total": "Total"})
+                    out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
+                    out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
+
                     title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
                     draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
+
                     buf = pdf.output(dest="S").encode("latin1")
-                    fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{datetime.now().strftime('%H-%M-%S')}.pdf"
+                    now_local = datetime.now(LOCAL_TZ)
+                    fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(buf, fname, weekly=True):
                         st.success("Weekly summary uploaded to GitHub!")
                     else:
@@ -567,12 +585,18 @@ with tab3:
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
-                    out_df = edited_weekly.rename(columns={"Final Total":"Total"})
-                    out_df.insert(1, "Already Made", out_df["Adjustments"])
+
+                    out_df = edited_weekly[["Product name", "Adjustments", "Final Total"]].copy()
+                    out_df = out_df.rename(columns={"Adjustments": "Already Made", "Final Total": "Total"})
+                    out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
+                    out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
+
                     title = f"Weekly Meal Summary - {week_start2.strftime('%d/%m/%Y')} to {week_end2.strftime('%d/%m/%Y')}"
                     draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
+
                     buf = pdf.output(dest="S").encode("latin1")
-                    fname = f"weekly_summary_{week_start2.strftime('%Y-%m-%d')}_to_{week_end2.strftime('%Y-%m-%d')}_{datetime.now().strftime('%H-%M-%S')}.pdf"
+                    now_local = datetime.now(LOCAL_TZ)
+                    fname = f"weekly_summary_{week_start2.strftime('%Y-%m-%d')}_to_{week_end2.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(buf, fname, weekly=True):
                         st.success("Weekly summary uploaded to GitHub!")
                     else:
