@@ -478,9 +478,8 @@ with tab3:
                     else:
                         continue
                 if "Already Made" not in df.columns:
-            df["Already Made"] = 0
-                df["Already Made"] = 0
-            dfs.append(df[["Product name","Already Made","Total"]])
+                    df["Already Made"] = 0
+                dfs.append(df[["Product name","Already Made","Total"]])
 
             if missing:
                 st.warning("Missing CSV for:\n\n- " + "\n- ".join(missing))
@@ -491,7 +490,7 @@ with tab3:
                 # Keep only expected columns in order
                 keep_cols = [c for c in ["Product name","Already Made","Total"] if c in weekly_df.columns]
                 weekly_df = weekly_df[keep_cols]
-                # If Already Made was missing in some, ensure column exists
+                # Ensure columns exist
                 if "Already Made" not in weekly_df.columns:
                     weekly_df["Already Made"] = 0
                 if "Total" not in weekly_df.columns:
