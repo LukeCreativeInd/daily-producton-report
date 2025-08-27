@@ -342,7 +342,7 @@ with tab2:
 
                     # sort by date/time desc using parsed timestamp
                     def ts(f):
-                        d, t = parse_daily_filename(f["name'])
+                        d, t = parse_daily_filename(f["name"])
                         try:
                             return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S") if d and t else datetime.min
                         except Exception:
