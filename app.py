@@ -400,11 +400,11 @@ with tab2:
 with tab3:
     st.subheader("Build a Weekly Summary")
 
-    tabs_week = st.tabs(["From existing reports (recommended)", "From file uploads"])
+    tabs_week = st.tabs(["From existing reports", "From file uploads"])
 
     # ---- From existing reports ----
     with tabs_week[0]:
-        st.caption("Pick a week, then choose daily reports in that range — I’ll fetch their paired CSVs automatically.")
+        st.caption("Pick a week, then choose daily reports in that range.")
 
         # Week selector first (also used as filter)
         today = date.today()
