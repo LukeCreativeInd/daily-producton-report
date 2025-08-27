@@ -478,6 +478,7 @@ with tab3:
                     else:
                         continue
                 if "Already Made" not in df.columns:
+            df["Already Made"] = 0
                 df["Already Made"] = 0
             dfs.append(df[["Product name","Already Made","Total"]])
 
