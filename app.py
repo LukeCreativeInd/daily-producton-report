@@ -147,6 +147,9 @@ def parse_daily_filename(name: str):
     try:
         base = name.replace("daily_production_report_", "").replace(".pdf", "")
         d, t = base.split("_", 1)
+        # quick sanity check
+        datetime.strptime(d, "%Y-%m-%d")
+        _ = datetime.strptime(t, "%H-%M-%S")
         return d, t
     except Exception:
         return None, None
@@ -155,25 +158,31 @@ def human_label_from_filename(name: str):
     d, t = parse_daily_filename(name)
     if not d or not t:
         return name
+    # cross-platform (no %-I). We'll strip any leading zero on 12h clock manually.
     try:
         dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
-        return f"Daily Report — {dt.strftime('%d/%m/%Y %-I:%M %p')}"
+        label = dt.strftime("%d/%m/%Y %I:%M %p")
+        # remove leading zero from hour
+        if label[11] == "0":
+            label = label[:11] + label[12:]
+        return f"Daily Report — {label}"
     except Exception:
-        # Windows/python on some servers: use %#I for hour; fallback
-        try:
-            dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
-            return f"Daily Report — {dt.strftime('%d/%m/%Y %I:%M %p').lstrip('0')}"
-        except Exception:
-            return name
+        return name
 
 def month_group_key(name: str):
-    d, t = parse_daily_filename(name)
+    """Return (year, month) as ints; fallback to (-1, -1) for unknowns so sorting never crashes."""
+    d, _ = parse_daily_filename(name)
     if not d:
-        return ("Unknown", "Unknown")
-    y, m, _ = d.split("-")
-    return (int(y), int(m))
+        return (-1, -1)
+    try:
+        y, m, _day = d.split("-")
+        return (int(y), int(m))
+    except Exception:
+        return (-1, -1)
 
 def month_label(year: int, month: int):
+    if year == -1 and month == -1:
+        return "Other"
     return f"{calendar.month_name[month]} {year}"
 
 # ---------- Tabs ----------
@@ -196,7 +205,6 @@ with tab1:
     selected_date_str = selected_date.strftime('%Y-%m-%d')
     now = datetime.now()
     now_str = now.strftime('%H-%M-%S')
-    selected_date_header = selected_date.strftime('%d/%m/%Y')
 
     st.subheader("Step 3: Bulk-Prepared Recipe Toggles")
     BULK_RECIPES = ["Spaghetti Bolognese","Beef Chow Mein","Beef Burrito Bowl","Shepherd's Pie"]
@@ -333,19 +341,19 @@ with tab2:
         if "history_daily" not in st.session_state or refresh_daily:
             st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
 
-        daily_files = st.session_state.get("history_daily", [])
+        daily_files = st.session_state.get("history_daily", []) or []
         daily_search = st.text_input("Search daily (yyyy-mm-dd or text)", key="daily_search")
         if daily_search:
             daily_files = [f for f in daily_files if daily_search.lower() in f["name"].lower()]
 
         # group by month
-        groups = {}
+        groups: dict[tuple[int,int], list] = {}
         for f in daily_files:
-            y, m = month_group_key(f["name"])
-            groups.setdefault((y, m), []).append(f)
+            key = month_group_key(f["name"])
+            groups.setdefault(key, []).append(f)
 
-        # sort groups by year-month desc
-        sorted_groups = sorted(groups.items(), key=lambda x: (x[0][0], x[0][1]), reverse=True)
+        # sort groups by (year, month) desc; (-1,-1) will naturally sink to the bottom
+        sorted_groups = sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
 
         # current month open by default
         today = datetime.today()
@@ -355,19 +363,15 @@ with tab2:
             st.info("No daily reports found.")
         else:
             for (y, m), files in sorted_groups:
-                if isinstance(y, int) and isinstance(m, int):
-                    label = f"{month_label(y, m)} ({len(files)})"
-                    expanded = ((y, m) == current_key)
-                else:
-                    label = f"Unknown ({len(files)})"
-                    expanded = False
+                label = f"{month_label(y, m)} ({len(files)})"
+                expanded = ((y, m) == current_key)
 
                 with st.expander(label, expanded=expanded):
                     # sort by date/time desc using parsed timestamp
                     def ts(f):
                         d, t = parse_daily_filename(f["name"])
                         try:
-                            return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
+                            return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S") if d and t else datetime.min
                         except Exception:
                             return datetime.min
                     files_sorted = sorted(files, key=ts, reverse=True)
@@ -381,7 +385,7 @@ with tab2:
         refresh_weekly = st.button("🔄 Refresh Weekly History")
         if "history_weekly" not in st.session_state or refresh_weekly:
             st.session_state["history_weekly"] = list_files_from_github(GITHUB_WEEKLY_PDF)
-        weekly_files = st.session_state.get("history_weekly", [])
+        weekly_files = st.session_state.get("history_weekly", []) or []
         weekly_search = st.text_input("Search weekly (yyyy-mm-dd or text)", key="weekly_search")
         if weekly_search:
             weekly_files = [f for f in weekly_files if weekly_search.lower() in f["name"].lower()]
@@ -389,10 +393,8 @@ with tab2:
         if not weekly_files:
             st.info("No weekly reports found.")
         else:
-            # simple newest-first list
             def wts(f):
                 n = f["name"].replace("weekly_summary_", "").replace(".pdf", "")
-                # yyyy-mm-dd_to_yyyy-mm-dd_HH-MM-SS
                 try:
                     rng, tm = n.rsplit("_", 1)
                     start, _, end = rng.partition("_to_")
@@ -409,6 +411,7 @@ with tab3:
     st.subheader("Build a Weekly Summary")
 
     tabs_week = st.tabs(["From existing reports (recommended)", "From file uploads"])
+
     # ----- A) FROM EXISTING REPORTS -----
     with tabs_week[0]:
         st.caption("Pick any daily reports below — the app will fetch their paired CSVs from the repo automatically.")
@@ -416,7 +419,7 @@ with tab3:
         # ensure we have the latest list
         if "history_daily" not in st.session_state:
             st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
-        daily_files = st.session_state["history_daily"]
+        daily_files = st.session_state["history_daily"] or []
 
         # Pretty labels for multiselect
         options = []
@@ -456,12 +459,10 @@ with tab3:
                     # normalise expected columns
                     needed = {"Product name","Total"}
                     if not needed.issubset(df.columns):
-                        # if brand cols present, compute Total
                         brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
                         if brand_cols:
                             df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
                         else:
-                            # nothing to sum; skip
                             continue
                     df = df[["Product name","Total"]]
                     dfs.append(df)
@@ -473,7 +474,6 @@ with tab3:
                 merged = pd.concat(dfs, ignore_index=True)
                 weekly_df = merged.groupby("Product name", as_index=False)["Total"].sum().rename(columns={"Total":"Total"})
                 weekly_df["Adjustments"] = 0
-                # order
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
                     lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
                 )
