@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
@@ -82,10 +81,9 @@ def _get_sha(path: str) -> str | None:
         return None
 
 def delete_file_from_github(path: str, message: str = "Delete file") -> bool:
-    """DELETE /contents path if present; return True if deleted or already missing."""
     sha = _get_sha(path)
     if not sha:
-        return True  # treat missing as success
+        return True  # missing = success
     payload = {"message": message, "sha": sha, "branch": "main"}
     resp = requests.delete(_contents_url(path), headers=_gh_headers(), json=payload)
     return resp.status_code in (200, 204)
@@ -167,13 +165,14 @@ def parse_daily_filename(name: str):
         return None, None
 
 def human_label_from_filename(name: str):
-    # AU date, NO time
-    d, _t = parse_daily_filename(name)
-    if not d:
+    # AU date + time from filename
+    d, t = parse_daily_filename(name)
+    if not d or not t:
         return name
     try:
-        dt = datetime.strptime(d, "%Y-%m-%d")
-        return f"Daily Report — {dt.strftime('%d/%m/%Y')}"
+        dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
+        label = dt.strftime("%d/%m/%Y %I:%M %p").replace(" 0", " ")
+        return f"Daily Report — {label}"
     except Exception:
         return name
 
@@ -195,11 +194,13 @@ def month_label(year: int, month: int):
 def weekly_pretty_label(name: str) -> str:
     n = name.replace("weekly_summary_", "").replace(".pdf", "")
     try:
-        rng, _tm = n.rsplit("_", 1)
+        rng, tm = n.rsplit("_", 1)
         start, _, end = rng.partition("_to_")
         d1 = datetime.strptime(start, "%Y-%m-%d").strftime("%d/%m/%Y")
         d2 = datetime.strptime(end,   "%Y-%m-%d").strftime("%d/%m/%Y")
-        return f"Weekly Summary — {d1} to {d2}"
+        # include time for disambiguation
+        tlabel = datetime.strptime(tm, "%H-%M-%S").strftime("%I:%M %p").lstrip("0")
+        return f"Weekly Summary — {d1} to {d2} — {tlabel}"
     except Exception:
         return name
 
@@ -237,10 +238,10 @@ with tab1:
                 st.error(f"{brand} failed to read: {e}")
                 continue
             df.columns = df.columns.str.strip()
-            if not {"Product name", "Quantity"}.issubset(df.columns):
+            if not {"Product name","Quantity"}.issubset(df.columns):
                 st.error(f"{brand} file must have 'Product name' and 'Quantity'")
                 continue
-            df = df[["Product name", "Quantity"]]
+            df = df[["Product name","Quantity"]]
             df["Product name"] = df["Product name"].astype(str).str.strip()
             df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0).astype(int)
             df = df.groupby("Product name", as_index=False).sum()
@@ -255,7 +256,7 @@ with tab1:
         for p in all_products:
             row = {"Product name": p, "Already Made": 0}
             for i, df in enumerate(dataframes):
-                row[brand_names[i]] = int(df.loc[df["Product name"]==p, "Quantity"].sum()) if p in df["Product name"].values else 0
+                row[brand_names[i]] = int(df.loc[df["Product name"]==p,"Quantity"].sum()) if p in df["Product name"].values else 0
             rows.append(row)
         summary_df = pd.DataFrame(rows)
         if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
@@ -431,12 +432,10 @@ with tab3:
         with c2:
             week_end = st.date_input("Week end", value=default_end, key="week_end_existing")
 
-        # Get list of daily PDFs (cached in session)
         if "history_daily" not in st.session_state:
             st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
         all_daily = st.session_state["history_daily"] or []
 
-        # Helper to parse datetime from file name
         def _daily_dt(name: str) -> datetime | None:
             d, t = parse_daily_filename(name)
             if not d or not t:
@@ -446,12 +445,10 @@ with tab3:
             except Exception:
                 return None
 
-        # Filter to selected week range (inclusive)
         start_dt = datetime.combine(week_start, datetime.min.time())
         end_dt = datetime.combine(week_end, datetime.max.time())
         in_range = [f for f in all_daily if (dt := _daily_dt(f["name"])) and start_dt <= dt <= end_dt]
 
-        # Pretty labels for multiselect
         in_range_sorted = sorted(in_range, key=lambda f: _daily_dt(f["name"]) or datetime.min, reverse=True)
         options = [f["name"] for f in in_range_sorted]
         label_map = {f["name"]: human_label_from_filename(f["name"]) for f in in_range_sorted}
@@ -464,7 +461,6 @@ with tab3:
             key="weekly_existing_choice"
         )
 
-        # Build weekly table from paired CSVs
         if selected_reports:
             dfs, missing = [], []
             for n in selected_reports:
@@ -476,7 +472,7 @@ with tab3:
                     continue
                 need = {"Product name", "Total"}
                 if not need.issubset(df.columns):
-                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total") ]
+                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
                     if brand_cols:
                         df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
                     else:
@@ -510,7 +506,6 @@ with tab3:
                     pdf = FPDF()
                     pdf.set_auto_page_break(False)
 
-                    # Build a clean dataframe with NO duplicate 'Total' column
                     out_df = edited_weekly[["Product name", "Adjustments", "Final Total"]].copy()
                     out_df = out_df.rename(columns={"Adjustments": "Already Made", "Final Total": "Total"})
                     out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
@@ -530,7 +525,7 @@ with tab3:
         else:
             st.info("Pick your week above — reports in that range will appear here to select.")
 
-    # ---- From file uploads (kept for flexibility) ----
+    # ---- From file uploads ----
     with tabs_week[1]:
         st.caption("Optional: upload raw CSV/XLSX files from the week (any brand/day).")
         week_files = st.file_uploader("Weekly files", type=["csv","xlsx"], accept_multiple_files=True, key="weekly_files_upload")
