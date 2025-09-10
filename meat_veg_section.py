@@ -65,7 +65,9 @@ def draw_meat_veg_section(
             ) +
             sum_totals_recipe_ingredients(["Beef Meatballs"], "Mince")
         ),
-        ("TOPSIDE STEAK", get_total_bulk_ingredient("Steak", "Steak")),
+        ("TOPSIDE STEAK",
+         get_total_bulk_ingredient("Steak", "Steak")
+         + get_total_recipe_ingredient("Steak On Its Own", "Topside Steak")),
         ("LAMB SHOULDER", get_total_bulk_ingredient("Lamb Marinate", "Lamb Shoulder")),
         ("MORROCAN CHICKEN", get_total_bulk_ingredient("Moroccan Chicken", "Chicken")),
         # Italian Chicken: total meals x 153g
