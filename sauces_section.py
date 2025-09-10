@@ -7,7 +7,7 @@ def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
             "meal_key": "THAI GREEN CHICKEN CURRY"
         },
         "Lamb Sauce": {
-            "ingredients": [("Greek Yogurt", 20), ("Garlic", 1.5), ("Salt", 0.5)],
+            "ingredients": [("Greek Yogurt", 20), ("Garlic", 1), ("Salt", 0.2)],
             "meal_key": "LAMB SOUVLAKI"
         }
     }
