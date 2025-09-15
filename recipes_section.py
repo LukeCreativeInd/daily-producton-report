@@ -46,7 +46,7 @@ meal_recipes = {
     "Mongolian Beef": {
         "batch": 0,
         "ingredients": {
-            "Chuck": 97, "Baking Soda": 2.5, "Water": 10, "Soy Sauce": 5, "Cornflour": 2.5, "Capsicum": 37, "Onion": 37, "Rice": 130
+            "Chuck": 118, "Baking Soda": 2.5, "Water": 10, "Soy Sauce": 5, "Cornflour": 2.5, "Capsicum": 37, "Onion": 37, "Rice": 130
         }
     },
     "Chicken With Vegetables": {
