@@ -4,7 +4,7 @@ from datetime import datetime
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
 bulk_sections = [
     {"title": "Spaghetti Order", "batch_ingredient": "Spaghetti", "batch_size": 85,
-     "ingredients": {"Spaghetti": 68, "Oil": 0.7},
+     "ingredients": {"Spaghetti": 64, "Oil": 0.7},
      "meals": ["Spaghetti Bolognese"]},
     {"title": "Penne Order", "batch_ingredient": "Penne", "batch_size": 135,
      "ingredients": {"Penne": 59, "Oil": 0.7},
@@ -28,7 +28,7 @@ bulk_sections = [
      "ingredients": {"Chicken": 160, "Oil": 4, "Roast Chicken Mix": 4},
      "meals": ["Roasted Lemon Chicken & Potatoes", "Chicken Fajita Bowl"]},
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
-     "ingredients": {"Steak": 110, "Oil": 1.5, "Baking Soda": 3},
+     "ingredients": {"Steak": 93, "Oil": 1.5, "Baking Soda": 3},
      "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
      "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Salt": 1.5, "Oregano": 1.2},
