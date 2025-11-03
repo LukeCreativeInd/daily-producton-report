@@ -88,7 +88,7 @@ meal_recipes = {
     "Thai Green Chicken Curry": {
         "batch": 0,
         "ingredients": {
-            "Chicken": 140, "Rice": 130
+            "Chicken": 144.2, "Rice": 130
         }
     },
     "Moroccan Chicken": {
