@@ -99,7 +99,7 @@ meal_recipes = {
         "sub_section": {
             "title": "Chickpea Recipe",
             "ingredients": {
-                "Onion": 20, "Zucchini": 30, "Red Capsicum": 30, "Garlic": 2, "Oil": 2, "Chickpeas": 115, "Mix Spices": 1.7, "Chicken Stock": 50
+                "Onion": 18, "Zucchini": 27, "Red Capsicum": 27, "Garlic": 1.8, "Oil": 1.8, "Chickpeas": 103.5, "Mix Spices": 1.53, "Chicken Stock": 45
             }
         }
     },
