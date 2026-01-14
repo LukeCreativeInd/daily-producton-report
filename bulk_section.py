@@ -31,7 +31,7 @@ bulk_sections = [
      "ingredients": {"Steak": 93, "Oil": 1.5, "Baking Soda": 3},
      "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
-     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Salt": 1.5, "Oregano": 0.3},
+     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Salt": 1.5, "Oregano": 0.3, "Baking Soda": 5.27},
      "meals": ["Lamb Souvlaki"]},
     {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
      "ingredients": {"Potato": 150, "Cooking Cream": 20, "Butter": 7, "Salt": 1.5, "White Pepper": 0.5},
