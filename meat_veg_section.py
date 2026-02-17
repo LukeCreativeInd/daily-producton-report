@@ -3,32 +3,31 @@ import math
 def draw_meat_veg_section(
     pdf, meal_totals, meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None
 ):
-    """Meat Order + Veg Prep (two columns).
-    Left column: Veg Prep
-    Right column: Meat Order
+    """Meat & Veg page (two columns).
+    - LEFT: Veg Prep
+    - RIGHT: Meat Order
     """
 
-    # Always start on a new page!
+    # Always start on a new page (header() will run automatically)
     pdf.add_page()
 
-    # Respect the PDF header height (header() runs inside add_page()).
-    # If a custom start_y is provided, use it; otherwise start just below header.
-    y_start = start_y if start_y is not None else (pdf.get_y() + 6)
-    pdf.set_xy(xpos, y_start)
+    # xpos is a list like [left_x, right_x]
+    left_x = xpos[0] if isinstance(xpos, (list, tuple)) else xpos
+    right_x = xpos[1] if isinstance(xpos, (list, tuple)) and len(xpos) > 1 else (left_x + col_w + pad)
 
-    # Page title (full-width, centered)
+    # Start just below header unless caller explicitly passes start_y
+    y_start = start_y if start_y is not None else (pdf.get_y() + 6)
+
+    # Title
+    pdf.set_xy(left_x, y_start)
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
     pdf.ln(2)
 
-    # Column positions
-    left_x = xpos
-    right_x = xpos + col_w + pad
     y_tables = pdf.get_y()
 
     # ---------- helpers ----------
     def _table_header(x, y, title, headers, widths):
-        """Draw a section header + table header row."""
         pdf.set_xy(x, y)
         pdf.set_font("Arial", "B", 11)
         pdf.set_fill_color(230, 230, 230)
@@ -39,6 +38,7 @@ def draw_meat_veg_section(
         for h, w in zip(headers, widths):
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
+
         pdf.set_font("Arial", "", 8)
         return pdf.get_y()
 
@@ -60,7 +60,7 @@ def draw_meat_veg_section(
         if section:
             total_meals = sum(meal_totals.get(m.upper(), 0) for m in section["meals"])
             qty = section["ingredients"].get(ingredient, 0)
-            return math.ceil(qty * total_meals)
+            return qty * total_meals
         return 0
 
     def sum_totals_recipe_ingredients(recipe_list, ingredient, ingredient_override=None, multiplier=None):
@@ -123,7 +123,7 @@ def draw_meat_veg_section(
             return per_batch * batches
         return total
 
-    # Meat order calculations (RIGHT column)
+    # ---------- DATA ----------
     meat_order = [
         ("CHUCK ROLL (LEBO)", get_total_recipe_ingredient("Lebanese Beef Stew", "Chuck Diced")),
         ("BEEF TOPSIDE (MONG)", get_total_recipe_ingredient("Mongolian Beef", "Chuck")),
@@ -135,22 +135,13 @@ def draw_meat_veg_section(
             )
             + sum_totals_recipe_ingredients(["Beef Meatballs"], "Mince"),
         ),
-        (
-            "TOPSIDE STEAK",
-            get_total_bulk_ingredient("Steak", "Steak")
-            + get_total_recipe_ingredient("Steak On Its Own", "Topside Steak"),
-        ),
+        ("TOPSIDE STEAK", get_total_bulk_ingredient("Steak", "Steak") + get_total_recipe_ingredient("Steak On Its Own", "Topside Steak")),
         ("LAMB SHOULDER", get_total_bulk_ingredient("Lamb Marinate", "Lamb Shoulder")),
         ("MORROCAN CHICKEN", get_total_bulk_ingredient("Moroccan Chicken", "Chicken")),
         (
             "ITALIAN CHICKEN",
             sum_totals_recipe_ingredients(
-                [
-                    "Chicken With Vegetables",
-                    "Chicken with Sweet Potato and Beans",
-                    "Naked Chicken Parma",
-                    "Chicken On Its Own",
-                ],
+                ["Chicken With Vegetables", "Chicken with Sweet Potato and Beans", "Naked Chicken Parma", "Chicken On Its Own"],
                 "Chicken",
                 multiplier=153,
             ),
@@ -158,13 +149,7 @@ def draw_meat_veg_section(
         (
             "NORMAL CHICKEN",
             sum_totals_recipe_ingredients(
-                [
-                    "Chicken Pesto Pasta",
-                    "Chicken and Broccoli Pasta",
-                    "Butter Chicken",
-                    "Thai Green Chicken Curry",
-                    "Creamy Chicken & Mushroom Gnocchi",
-                ],
+                ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta", "Butter Chicken", "Thai Green Chicken Curry", "Creamy Chicken & Mushroom Gnocchi"],
                 "Chicken",
                 multiplier=130,
             ),
@@ -172,7 +157,6 @@ def draw_meat_veg_section(
         ("CHICKEN THIGH", get_total_bulk_ingredient("Chicken Thigh", "Chicken")),
     ]
 
-    # Veg prep calculations (LEFT column)
     veg_prep = [
         ("10MM DICED CARROT", get_batch_total("Lebanese Beef Stew", "Carrot")),
         ("10MM DICED POTATO (LEBO)", get_batch_total("Lebanese Beef Stew", "Potato")),
@@ -187,10 +171,7 @@ def draw_meat_veg_section(
             get_batch_total("Shepherd's Pie", "Capsicum")
             + get_batch_total("Beef Burrito Bowl", "Capsicum")
             + (
-                meal_recipes.get("Moroccan Chicken", {})
-                .get("sub_section", {})
-                .get("ingredients", {})
-                .get("Red Capsicum", 0)
+                meal_recipes.get("Moroccan Chicken", {}).get("sub_section", {}).get("ingredients", {}).get("Red Capsicum", 0)
                 * meal_totals.get("MOROCCAN CHICKEN".upper(), 0)
             ),
         ),
@@ -213,7 +194,6 @@ def draw_meat_veg_section(
         ),
         ("5MM MONGOLIAN CAPSICUM", get_batch_total("Mongolian Beef", "Capsicum") + get_batch_total("Chicken Fajita Bowl", "Capsicum")),
         ("5MM MONGOLIAN ONION", get_batch_total("Mongolian Beef", "Onion") + get_batch_total("Chicken Fajita Bowl", "Red Onion")),
-        ("5MM SLICED MUSHROOMS", 0),
         ("BROCCOLI", get_batch_total("Chicken and Broccoli Pasta", "Broccoli") + get_batch_total("Chicken With Vegetables", "Broccoli")),
         ("CRATED CARROTS", get_batch_total("Spaghetti Bolognese", "Carrot") + get_batch_total("Bean Nachos with Rice", "Carrot")),
         ("CRATED ZUCCHINI", get_batch_total("Spaghetti Bolognese", "Zucchini")),
@@ -227,27 +207,15 @@ def draw_meat_veg_section(
         ("PARSLEY", get_bulk_total("Lamb Onion Marinated", "Parsley")),
     ]
 
-    # ---------- draw LEFT (Veg Prep) ----------
-    y_left = _table_header(
-        left_x,
-        y_tables,
-        "Veg Prep",
-        headers=["Veg Prep", "Amount (g)"],
-        widths=[0.7, 0.3],
-    )
+    # ---------- DRAW LEFT ----------
+    y_left = _table_header(left_x, y_tables, "Veg Prep", ["Veg Prep", "Amount (g)"], [0.7, 0.3])
     for veg, amt in veg_prep:
-        y_left = _table_row(left_x, y_left, [veg, int(math.ceil(amt))], widths=[0.7, 0.3])
+        y_left = _table_row(left_x, y_left, [veg, int(math.ceil(amt))], [0.7, 0.3])
 
-    # ---------- draw RIGHT (Meat Order) ----------
-    y_right = _table_header(
-        right_x,
-        y_tables,
-        "Meat Order",
-        headers=["Meat Type", "Amount (g)"],
-        widths=[0.6, 0.4],
-    )
+    # ---------- DRAW RIGHT ----------
+    y_right = _table_header(right_x, y_tables, "Meat Order", ["Meat Type", "Amount (g)"], [0.6, 0.4])
     for mtype, amt in meat_order:
-        y_right = _table_row(right_x, y_right, [mtype, int(math.ceil(amt))], widths=[0.6, 0.4])
+        y_right = _table_row(right_x, y_right, [mtype, int(math.ceil(amt))], [0.6, 0.4])
 
     pdf.ln(4)
     return max(y_left, y_right)
