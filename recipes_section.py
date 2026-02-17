@@ -155,6 +155,11 @@ meal_recipes = {
     }
 }
 
+import math
+from utils import fmt_int_up, fmt_weight, fmt_qty
+
+# (keeping your meal_recipes dict exactly as-is...)
+
 def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes_override=None):
     recipes = meal_recipes_override if meal_recipes_override is not None else meal_recipes
 
@@ -207,10 +212,10 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.3, ch, ing[:20], 1)
-            # ✅ Qty/Meal must match recipes exactly (allow decimals like 0.5)
+            # ✅ per-unit must be exact
             pdf.cell(col_w * 0.15, ch, fmt_qty(qty), 1)
             pdf.cell(col_w * 0.15, ch, str(tot), 1)
-            # ✅ totals stay whole numbers (rounded UP)
+            # ✅ totals rounded up
             pdf.cell(col_w * 0.25, ch, fmt_int_up(bt), 1)
             pdf.cell(col_w * 0.15, ch, bl, 1)
             pdf.ln(ch)
@@ -232,10 +237,10 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
                 adj = per * tot
                 pdf.set_x(x)
                 pdf.cell(col_w * 0.3, ch, str(ingr)[:20], 1)
-                # ✅ Qty/Meal in sub sections also must match exactly
+                # ✅ per-unit must be exact
                 pdf.cell(col_w * 0.15, ch, fmt_qty(per), 1)
                 pdf.cell(col_w * 0.15, ch, str(tot), 1)
-                # ✅ totals stay whole numbers (rounded UP)
+                # ✅ totals rounded up
                 pdf.cell(col_w * 0.25, ch, fmt_int_up(adj), 1)
                 pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
