@@ -1,4 +1,5 @@
 import math
+from utils import fmt_weight
 
 def draw_meat_veg_section(
     pdf, meal_totals, meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None
@@ -13,7 +14,6 @@ def draw_meat_veg_section(
 
     pdf.add_page()
 
-    # IMPORTANT: ignore start_y (it comes from prior section and can force mid-page starts)
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
     pdf.ln(2)
@@ -22,9 +22,6 @@ def draw_meat_veg_section(
     left_x = xpos[0]
     right_x = xpos[1]
 
-    # -----------------------------
-    # Helpers
-    # -----------------------------
     def get_total_recipe_ingredient(recipe, ingredient):
         data = meal_recipes.get(recipe, {})
         meals = meal_totals.get(recipe.upper(), 0)
@@ -36,7 +33,7 @@ def draw_meat_veg_section(
         if section:
             total_meals = sum(meal_totals.get(m.upper(), 0) for m in section["meals"])
             qty = section["ingredients"].get(ingredient, 0)
-            return round(qty * total_meals)
+            return qty * total_meals
         return 0
 
     def sum_totals_recipe_ingredients(recipe_list, ingredient, multiplier=None):
@@ -59,8 +56,7 @@ def draw_meat_veg_section(
         batch = data.get("batch", 0)
         batches = math.ceil(meals / batch) if batch > 0 else 1
         total = qty * meals
-        batch_total = (qty * meals) // batches if batches > 1 else total
-        return batch_total * batches if batches > 1 else total
+        return (total / batches) * batches if batches > 1 else total
 
     def get_bulk_total(bulk_title, ingredient):
         section = next((b for b in bulk_sections if b["title"] == bulk_title), None)
@@ -70,8 +66,7 @@ def draw_meat_veg_section(
             batch_size = section.get("batch_size", 0)
             batches = math.ceil(total_meals / batch_size) if batch_size > 0 else 1
             total = qty * total_meals
-            batch_total = (qty * total_meals) // batches if batches > 1 else total
-            return batch_total * batches if batches > 1 else total
+            return (total / batches) * batches if batches > 1 else total
         return 0
 
     def get_total_from_chicken_mixing():
@@ -80,12 +75,9 @@ def draw_meat_veg_section(
         divisor = 36
         raw_b = math.ceil(meals / divisor) if divisor > 0 else 0
         batches = raw_b + (raw_b % 2) if raw_b > 0 else 0
-        total = (qty * meals) // batches if batches else qty * meals
+        total = (qty * meals) / batches if batches else qty * meals
         return total * batches if batches > 1 else qty * meals
 
-    # -----------------------------
-    # Data
-    # -----------------------------
     meat_order = [
         ("CHUCK ROLL (LEBO)", get_total_recipe_ingredient("Lebanese Beef Stew", "Chuck Diced")),
         ("BEEF TOPSIDE (MONG)", get_total_recipe_ingredient("Mongolian Beef", "Chuck")),
@@ -151,9 +143,7 @@ def draw_meat_veg_section(
         ("PARSLEY", get_bulk_total("Lamb Onion Marinated", "Parsley")),
     ]
 
-    # -----------------------------
-    # RIGHT column: Meat Order (render first so it's always on page 1)
-    # -----------------------------
+    # RIGHT column: Meat Order
     pdf.set_xy(right_x, y_top)
     pdf.set_font("Arial", "B", 11)
     pdf.set_fill_color(230, 230, 230)
@@ -169,12 +159,10 @@ def draw_meat_veg_section(
     for mtype, amt in meat_order:
         pdf.set_x(right_x)
         pdf.cell(col_w * 0.6, ch, mtype, 1)
-        pdf.cell(col_w * 0.4, ch, str(int(round(amt))), 1)
+        pdf.cell(col_w * 0.4, ch, fmt_weight(amt), 1)
         pdf.ln(ch)
 
-    # -----------------------------
     # LEFT column: Veg Prep
-    # -----------------------------
     pdf.set_xy(left_x, y_top)
     pdf.set_font("Arial", "B", 11)
     pdf.set_fill_color(230, 230, 230)
@@ -189,7 +177,6 @@ def draw_meat_veg_section(
     pdf.set_font("Arial", "", 8)
     for veg, amt in veg_prep:
         if pdf.get_y() + ch > bottom:
-            # If veg ever continues, it continues on a new page by itself (meat stays on page 1)
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
             pdf.cell(0, 10, "Meat Order and Veg Prep (cont.)", ln=1, align="C")
@@ -211,7 +198,7 @@ def draw_meat_veg_section(
 
         pdf.set_x(left_x)
         pdf.cell(col_w * 0.7, ch, veg, 1)
-        pdf.cell(col_w * 0.3, ch, str(int(round(amt))), 1)
+        pdf.cell(col_w * 0.3, ch, fmt_weight(amt), 1)
         pdf.ln(ch)
 
     return pdf.get_y()
