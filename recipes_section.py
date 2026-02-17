@@ -1,4 +1,5 @@
 import math
+from utils import fmt_weight
 
 # Export meal_recipes for use elsewhere
 meal_recipes = {
@@ -155,19 +156,21 @@ meal_recipes = {
 }
 
 def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes_override=None):
-    # Use override if passed, otherwise use module-level variable
     recipes = meal_recipes_override if meal_recipes_override is not None else meal_recipes
 
     pdf.set_y(start_y or pdf.get_y())
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meal Recipes", ln=1, align='C')
     pdf.ln(5)
+
     heights = [pdf.get_y(), pdf.get_y()]
+
     for name, data in recipes.items():
         main = len(data["ingredients"])
         sub = len(data.get("sub_section", {}).get("ingredients", {}))
         rows = 2 + main + (2 + sub if sub else 0)
         block_h = rows * ch + pad
+
         col = 0 if heights[0] <= heights[1] else 1
         if heights[col] + block_h > bottom:
             pdf.add_page()
@@ -176,54 +179,63 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
             pdf.ln(5)
             heights = [pdf.get_y(), pdf.get_y()]
             col = 0
+
         x, y = xpos[col], heights[col]
         pdf.set_xy(x, y)
         pdf.set_font("Arial", "B", 11)
         pdf.set_fill_color(230, 230, 230)
         pdf.cell(col_w, ch, name, ln=1, fill=True)
+
         pdf.set_x(x)
         pdf.set_font("Arial", "B", 8)
         for h, w in [("Ingredient", 0.3), ("Qty/Meal", 0.15), ("Meals", 0.15), ("Batch Total", 0.25), ("Batch", 0.15)]:
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
+
         pdf.set_font("Arial", "", 8)
         tot = meal_totals.get(name.upper(), 0)
         batch_val = data.get("batch", 0)
         batches = math.ceil(tot / batch_val) if batch_val > 0 else 0
+
         for i, (ing, qty) in enumerate(data["ingredients"].items()):
-            # If batch > 0, use batch logic; else just qty * tot
             if batch_val > 0 and batches > 0:
-                bt = round(qty * tot / batches)
+                bt = (qty * tot / batches)
                 bl = str(batches) if i == 0 else ""
             else:
                 bt = qty * tot
                 bl = ""
+
             pdf.set_x(x)
             pdf.cell(col_w * 0.3, ch, ing[:20], 1)
-            pdf.cell(col_w * 0.15, ch, str(qty), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_weight(qty), 1)
             pdf.cell(col_w * 0.15, ch, str(tot), 1)
-            pdf.cell(col_w * 0.25, ch, str(bt), 1)
+            pdf.cell(col_w * 0.25, ch, fmt_weight(bt), 1)
             pdf.cell(col_w * 0.15, ch, bl, 1)
             pdf.ln(ch)
+
         if "sub_section" in data:
-            sub = data["sub_section"]
+            subsec = data["sub_section"]
             pdf.set_x(x)
             pdf.set_font("Arial", "B", 9)
-            pdf.cell(col_w, ch, sub["title"], ln=1)
+            pdf.cell(col_w, ch, subsec["title"], ln=1)
+
             pdf.set_x(x)
             pdf.set_font("Arial", "B", 8)
             for h, w in [("Ingredient", 0.3), ("Qty/Meal", 0.15), ("Meals", 0.15), ("Total", 0.25), ("", 0.15)]:
                 pdf.cell(col_w * w, ch, h, 1)
             pdf.ln(ch)
+
             pdf.set_font("Arial", "", 8)
-            for ingr, per in sub["ingredients"].items():
+            for ingr, per in subsec["ingredients"].items():
                 adj = per * tot
                 pdf.set_x(x)
-                pdf.cell(col_w * 0.3, ch, ingr[:20], 1)
-                pdf.cell(col_w * 0.15, ch, str(per), 1)
+                pdf.cell(col_w * 0.3, ch, str(ingr)[:20], 1)
+                pdf.cell(col_w * 0.15, ch, fmt_weight(per), 1)
                 pdf.cell(col_w * 0.15, ch, str(tot), 1)
-                pdf.cell(col_w * 0.25, ch, str(adj), 1)
+                pdf.cell(col_w * 0.25, ch, fmt_weight(adj), 1)
                 pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
+
         heights[col] = pdf.get_y() + pad
+
     return max(heights)
