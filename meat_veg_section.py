@@ -3,10 +3,18 @@ import math
 def draw_meat_veg_section(
     pdf, meal_totals, meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None
 ):
-    # Always start on a new page!
+    # Always start on a new page
     pdf.add_page()
-    y = 10  # Top margin for new page
-    pdf.set_y(y)
+
+    # IMPORTANT:
+    # The PDF header() now consumes vertical space and sets the cursor below the header.
+    # Do NOT reset y to 10, otherwise content will overlap the header box.
+    if start_y is not None:
+        pdf.set_y(start_y)
+    else:
+        # Start wherever the header left us
+        pdf.set_y(pdf.get_y())
+
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
     pdf.ln(2)
@@ -38,14 +46,12 @@ def draw_meat_veg_section(
     def sum_totals_recipe_ingredients(recipe_list, ingredient, ingredient_override=None, multiplier=None):
         total_meals = 0
         for rec in recipe_list:
-            data = meal_recipes.get(rec, {})
             meals = meal_totals.get(rec.upper(), 0)
-            ing = ingredient_override if ingredient_override else ingredient
             total_meals += meals
+
         if multiplier is not None:
             return total_meals * multiplier
         else:
-            # Fall back to sum Qty/Meal × Meals for each
             total = 0
             for rec in recipe_list:
                 data = meal_recipes.get(rec, {})
@@ -59,7 +65,7 @@ def draw_meat_veg_section(
     meat_order = [
         ("CHUCK ROLL (LEBO)", get_total_recipe_ingredient("Lebanese Beef Stew", "Chuck Diced")),
         ("BEEF TOPSIDE (MONG)", get_total_recipe_ingredient("Mongolian Beef", "Chuck")),
-        ("MINCE", 
+        ("MINCE",
             sum_totals_recipe_ingredients(
                 ["Spaghetti Bolognese", "Shepherd's Pie", "Beef Chow Mein", "Beef Burrito Bowl"], "Beef Mince"
             ) +
@@ -77,7 +83,7 @@ def draw_meat_veg_section(
                 "Chicken with Sweet Potato and Beans",
                 "Naked Chicken Parma",
                 "Chicken On Its Own"
-            ], 
+            ],
             "Chicken", multiplier=153
         )),
         # Normal Chicken: total meals x 130g
@@ -88,7 +94,7 @@ def draw_meat_veg_section(
                 "Butter Chicken",
                 "Thai Green Chicken Curry",
                 "Creamy Chicken & Mushroom Gnocchi"
-            ], 
+            ],
             "Chicken", multiplier=130
         )),
         ("CHICKEN THIGH", get_total_bulk_ingredient("Chicken Thigh", "Chicken")),
