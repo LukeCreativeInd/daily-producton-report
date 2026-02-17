@@ -16,6 +16,80 @@ from fridge_section import draw_fridge_section
 from chicken_mixing_section import draw_chicken_mixing_section
 from meat_veg_section import draw_meat_veg_section
 
+# ---------- PDF Header (HACCP) ----------
+# These are intentionally static and only change when HACCP docs are reviewed.
+HACCP_LATEST_ISSUE_DATE = "13/01/24"
+HACCP_PREVIOUS_ISSUE_DATE = "28/10/23"
+HACCP_APPROVED_BY = "T. Fadlallah"
+HACCP_PREPARED_BY = "C. Guzzardi"
+
+
+class ProductionPDF(FPDF):
+    """FPDF with a fixed HACCP header rendered on every page."""
+
+    def __init__(self, *args, header_date_str: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.header_date_str = header_date_str
+
+        # Header layout constants (mm)
+        self._hdr_x = 10
+        self._hdr_y = 10
+        self._hdr_w = 210 - 20
+        # Row heights: main title, date/page, HACCP title, issue row, approved/prepared row
+        self._hdr_rows = [12, 10, 8, 6, 6]
+        self._hdr_h = sum(self._hdr_rows)
+        self._hdr_gap = 6  # space below header before page content starts
+
+    def header(self):
+        # Outer box
+        x0, y0, w = self._hdr_x, self._hdr_y, self._hdr_w
+        r1, r2, r3, r4, r5 = self._hdr_rows
+        self.set_line_width(0.4)
+        self.rect(x0, y0, w, self._hdr_h)
+
+        # Row 1: main title
+        self.set_xy(x0, y0)
+        self.set_font("Arial", "B", 18)
+        self.cell(w, r1, "Production Schedule Report", border=0, ln=1, align="C")
+
+        # Row 2: date and page
+        self.set_xy(x0, y0 + r1)
+        self.set_font("Arial", "B", 14)
+        self.cell(w, r2, f"{self.header_date_str} – Page {self.page_no()}", border=0, ln=1, align="C")
+
+        # Horizontal lines between rows
+        y = y0 + r1
+        self.line(x0, y, x0 + w, y)
+        y = y0 + r1 + r2
+        self.line(x0, y, x0 + w, y)
+        y = y0 + r1 + r2 + r3
+        self.line(x0, y, x0 + w, y)
+        y = y0 + r1 + r2 + r3 + r4
+        self.line(x0, y, x0 + w, y)
+
+        # Row 3: HACCP title
+        self.set_xy(x0, y0 + r1 + r2)
+        self.set_font("Arial", "B", 13)
+        self.cell(w, r3, "Clean Eats Australia - HACCP FSP Section F - Form 1", border=0, ln=1, align="C")
+
+        # Row 4: issue dates (2 columns)
+        half = w / 2
+        self.set_font("Arial", "", 9)
+        self.set_xy(x0, y0 + r1 + r2 + r3)
+        self.cell(half, r4, f"Latest Issue Date: {HACCP_LATEST_ISSUE_DATE}", border=0, align="C")
+        self.cell(half, r4, f"Previous Issue Date: {HACCP_PREVIOUS_ISSUE_DATE}", border=0, ln=1, align="C")
+        # vertical split line
+        self.line(x0 + half, y0 + r1 + r2 + r3, x0 + half, y0 + r1 + r2 + r3 + r4)
+
+        # Row 5: approved / prepared (2 columns)
+        self.set_xy(x0, y0 + r1 + r2 + r3 + r4)
+        self.cell(half, r5, f"Approved by: {HACCP_APPROVED_BY}", border=0, align="C")
+        self.cell(half, r5, f"Prepared by: {HACCP_PREPARED_BY}", border=0, ln=1, align="C")
+        self.line(x0 + half, y0 + r1 + r2 + r3 + r4, x0 + half, y0 + self._hdr_h)
+
+        # Move cursor below header so subsequent content starts in the right place
+        self.set_y(y0 + self._hdr_h + self._hdr_gap)
+
 # ---------- Page ----------
 st.set_page_config(page_title="Production Report", layout="wide")
 st.title("📦 Production Report")
@@ -262,9 +336,13 @@ with tab1:
         if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
 
         st.subheader("Step 4: Adjust Quantities (if needed)")
-        edited_df = st.data_editor(summary_df, num_rows="dynamic", use_container_width=True,
-                                   column_config={b: {"width":70} for b in (brand_names+["Already Made"])},
-                                   key="editable_table_daily")
+        edited_df = st.data_editor(
+            summary_df,
+            num_rows="dynamic",
+            width='stretch',
+            column_config={b: {"width":70} for b in (brand_names+["Already Made"])},
+            key="editable_table_daily"
+        )
         if brand_names:
             edited_df["Total"] = (edited_df[brand_names].sum(axis=1)-edited_df["Already Made"]).clip(lower=0)
         else:
@@ -272,7 +350,7 @@ with tab1:
 
         edited_df["meal_order"] = edited_df["Product name"].apply(lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999)
         edited_df = edited_df.sort_values("meal_order").drop(columns=["meal_order"])
-        st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], use_container_width=True)
+        st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
 
         meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
         custom_meal_recipes = copy.deepcopy(meal_recipes)
@@ -283,7 +361,9 @@ with tab1:
                     for ing in custom_meal_recipes[r]["sub_section"].get("ingredients",{}): custom_meal_recipes[r]["sub_section"]["ingredients"][ing]=0
 
         if st.button("Generate & Save Production Report PDF"):
-            pdf = FPDF(); pdf.set_auto_page_break(False)
+            header_date = selected_date.strftime('%d/%m/%Y')
+            pdf = ProductionPDF(header_date_str=header_date)
+            pdf.set_auto_page_break(False)
             a4_w,a4_h=210,297; left=10; page_w=a4_w-20; col_w=page_w/2-5; ch,pad,bottom=6,4,a4_h-17; xpos=[left,left+col_w+10]
             draw_summary_section(pdf, edited_df[["Product name"]+brand_names+["Already Made","Total"]], brand_names,
                                  f"Meal Production Summary - {selected_date.strftime('%d/%m/%Y')}")
@@ -353,10 +433,10 @@ with tab2:
                     for f in files_sorted:
                         c1, c2 = st.columns([0.8, 0.2])
                         with c1:
-                            st.link_button(human_label_from_filename(f["name"]), f["download_url"], use_container_width=True)
+                            st.link_button(human_label_from_filename(f["name"]), f["download_url"], width='stretch')
                         with c2:
                             confirm = st.checkbox("Confirm", key=f"confirm_daily_{f['name']}")
-                            if st.button("🗑 Delete", key=f"del_daily_{f['name']}", type="secondary", disabled=not confirm, use_container_width=True):
+                            if st.button("🗑 Delete", key=f"del_daily_{f['name']}", type="secondary", disabled=not confirm, width='stretch'):
                                 pdf_path = f"{GITHUB_DAILY_PDF}/{f['name']}"
                                 csv_name = f['name'].replace(".pdf", ".csv")
                                 csv_path = f"{GITHUB_DAILY_CSV}/{csv_name}"
@@ -398,10 +478,10 @@ with tab2:
             for f in weekly_sorted:
                 c1, c2 = st.columns([0.8, 0.2])
                 with c1:
-                    st.link_button(weekly_pretty_label(f["name"]), f["download_url"], use_container_width=True)
+                    st.link_button(weekly_pretty_label(f["name"]), f["download_url"], width='stretch')
                 with c2:
                     confirm = st.checkbox("Confirm", key=f"confirm_weekly_{f['name']}")
-                    if st.button("🗑 Delete", key=f"del_weekly_{f['name']}", type="secondary", disabled=not confirm, use_container_width=True):
+                    if st.button("🗑 Delete", key=f"del_weekly_{f['name']}", type="secondary", disabled=not confirm, width='stretch'):
                         pdf_path = f"{GITHUB_WEEKLY_PDF}/{f['name']}"
                         ok_pdf = delete_file_from_github(pdf_path, "Delete weekly summary PDF")
                         if ok_pdf:
@@ -504,16 +584,17 @@ with tab3:
                 edited_weekly = st.data_editor(
                     weekly_df,
                     num_rows="dynamic",
-                    use_container_width=True,
+                    width='stretch',
                     key="weekly_editor_existing",
                     column_config={"Total": {"width": 90}, "Adjustments": {"width": 110}}
                 )
                 edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
 
-                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], use_container_width=True)
+                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
-                    pdf = FPDF()
+                    header_date = f"{week_start.strftime('%d/%m/%Y')}–{week_end.strftime('%d/%m/%Y')}"
+                    pdf = ProductionPDF(header_date_str=header_date)
                     pdf.set_auto_page_break(False)
 
                     out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
@@ -579,16 +660,17 @@ with tab3:
                 edited_weekly = st.data_editor(
                     weekly_df,
                     num_rows="dynamic",
-                    use_container_width=True,
+                    width='stretch',
                     key="weekly_editor_upload",
                     column_config={"Total": {"width": 90}, "Adjustments": {"width": 110}}
                 )
                 edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
 
-                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], use_container_width=True)
+                st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
-                    pdf = FPDF()
+                    header_date = f"{week_start2.strftime('%d/%m/%Y')}–{week_end2.strftime('%d/%m/%Y')}"
+                    pdf = ProductionPDF(header_date_str=header_date)
                     pdf.set_auto_page_break(False)
 
                     out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
