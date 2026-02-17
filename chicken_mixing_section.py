@@ -1,6 +1,6 @@
 import math
 
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
     """
@@ -72,10 +72,10 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
             pdf.set_x(x)
             pdf.cell(col_w * 0.22, ch, str(ing), 1)
             # Weights/totals: 2dp
-            pdf.cell(col_w * 0.18, ch, fmt_weight(qty), 1)
+            pdf.cell(col_w * 0.18, ch, fmt_int_up(qty), 1)
             # Meal count: integer
             pdf.cell(col_w * 0.18, ch, str(int(amt)), 1)
-            pdf.cell(col_w * 0.21, ch, fmt_weight(total_per_batch), 1)
+            pdf.cell(col_w * 0.21, ch, fmt_int_up(total_per_batch), 1)
             # Batches: integer
             pdf.cell(col_w * 0.21, ch, str(int(batches)), 1)
             pdf.ln(ch)
