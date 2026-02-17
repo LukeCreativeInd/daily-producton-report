@@ -1,5 +1,5 @@
 import math
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 def draw_meat_veg_section(
     pdf, meal_totals, meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None
@@ -59,7 +59,7 @@ def draw_meat_veg_section(
         
         # ✅ Batches must remain whole numbers — if batching applies, floor to full batches
         if batches > 1:
-            per_batch = (total // batches) if batches else total
+            per_batch = math.ceil(total / batches) if batches else total
             return per_batch * batches
         return total
 
@@ -74,8 +74,8 @@ def draw_meat_veg_section(
         
             # ✅ Batches must remain whole numbers — if batching applies, floor to full batches
             if batches > 1:
-                per_batch = (total // batches) if batches else total
-                return per_batch * batches
+                per_batch = math.ceil(total / batches) if batches else total
+            return per_batch * batches
             return total
         return 0
 
@@ -89,7 +89,7 @@ def draw_meat_veg_section(
         total = qty * meals
         # ✅ Batches must remain whole numbers — floor to full batches when batching applies
         if batches > 1:
-            per_batch = (total // batches) if batches else total
+            per_batch = math.ceil(total / batches) if batches else total
             return per_batch * batches
         return total
 
@@ -174,7 +174,7 @@ def draw_meat_veg_section(
     for mtype, amt in meat_order:
         pdf.set_x(right_x)
         pdf.cell(col_w * 0.6, ch, mtype, 1)
-        pdf.cell(col_w * 0.4, ch, fmt_weight(amt), 1)
+        pdf.cell(col_w * 0.4, ch, fmt_int_up(amt), 1)
         pdf.ln(ch)
 
     # LEFT column: Veg Prep
@@ -213,7 +213,7 @@ def draw_meat_veg_section(
 
         pdf.set_x(left_x)
         pdf.cell(col_w * 0.7, ch, veg, 1)
-        pdf.cell(col_w * 0.3, ch, fmt_weight(amt), 1)
+        pdf.cell(col_w * 0.3, ch, fmt_int_up(amt), 1)
         pdf.ln(ch)
 
     return pdf.get_y()
