@@ -217,4 +217,3 @@ def draw_meat_veg_section(
 
     pdf.ln(4)
     return max(y_left, y_right)
-
