@@ -1,5 +1,5 @@
 import math
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
     sauces = {
@@ -63,9 +63,9 @@ def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
             req_ing = (am * tm) if isinstance(am, (int, float)) and isinstance(tm, (int, float)) else 0
             pdf.set_x(x)
             pdf.cell(col_w * 0.3, ch, str(ing)[:20], 1)
-            pdf.cell(col_w * 0.2, ch, fmt_weight(am), 1)
+            pdf.cell(col_w * 0.2, ch, fmt_int_up(am), 1)
             pdf.cell(col_w * 0.2, ch, str(int(tm)), 1)
-            pdf.cell(col_w * 0.3, ch, fmt_weight(req_ing), 1)
+            pdf.cell(col_w * 0.3, ch, fmt_int_up(req_ing), 1)
             pdf.ln(ch)
 
         heights[col] = pdf.get_y() + pad
