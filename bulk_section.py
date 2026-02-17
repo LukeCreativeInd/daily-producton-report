@@ -113,7 +113,7 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.4, ch, ingr[:20], 1)
-            # ✅ per-unit must be exact
+            # ✅ per-unit exact
             pdf.cell(col_w * 0.15, ch, fmt_qty(per), 1)
             pdf.cell(col_w * 0.15, ch, str(total_meals), 1)
             # ✅ totals rounded up
