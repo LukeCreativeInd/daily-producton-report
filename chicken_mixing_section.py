@@ -1,4 +1,5 @@
 import math
+from utils import fmt_weight
 
 def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
     """
@@ -24,14 +25,9 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
     ]
 
     def next_pos(heights, col, block_h):
-        # balance columns first
         col = 0 if heights[0] <= heights[1] else 1
-
-        # if doesn't fit in chosen col, try other col
         if heights[col] + block_h > bottom:
             col = 1 - col
-
-        # if still doesn't fit, add a new page
         if heights[col] + block_h > bottom:
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
@@ -39,7 +35,6 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
             pdf.ln(2)
             heights = [pdf.get_y(), pdf.get_y()]
             col = 0
-
         return heights, col
 
     for name, ingredients, meal_key, divisor, extra in mixes:
@@ -65,13 +60,13 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         pdf.set_font("Arial", "", 8)
         for ing, qty in ingredients:
             total = qty * amt
-            total_per_batch = math.ceil(total / batches) if batches else total
+            total_per_batch = (total / batches) if batches else total
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.22, ch, str(ing), 1)
-            pdf.cell(col_w * 0.18, ch, str(qty), 1)
-            pdf.cell(col_w * 0.18, ch, str(amt), 1)
-            pdf.cell(col_w * 0.21, ch, str(total_per_batch), 1)
+            pdf.cell(col_w * 0.18, ch, fmt_weight(qty), 1)
+            pdf.cell(col_w * 0.18, ch, str(int(amt)), 1)
+            pdf.cell(col_w * 0.21, ch, fmt_weight(total_per_batch), 1)
             pdf.cell(col_w * 0.21, ch, str(batches), 1)
             pdf.ln(ch)
 
