@@ -25,7 +25,14 @@ HACCP_PREPARED_BY = "C. Guzzardi"
 
 
 class ProductionPDF(FPDF):
-    """FPDF with a fixed HACCP header rendered on every page."""
+    """
+    FPDF with a fixed HACCP header rendered on every page.
+
+    Important:
+    - fpdf (classic) is latin-1 only. Any unicode (e.g. “–”, “—”, smart quotes) will crash output().
+    - We defensively coerce ALL text going into cell/multi_cell into latin-1 (with replacement)
+      so a single bad character can’t break the whole report.
+    """
 
     def __init__(self, *args, header_date_str: str, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,6 +47,22 @@ class ProductionPDF(FPDF):
         self._hdr_h = sum(self._hdr_rows)
         self._hdr_gap = 6  # space below header before page content starts
 
+    # --- latin-1 safety ---
+    @staticmethod
+    def _latin1(txt) -> str:
+        if txt is None:
+            return ""
+        s = str(txt)
+        # Replace unsupported characters rather than throwing UnicodeEncodeError
+        return s.encode("latin-1", "replace").decode("latin-1")
+
+    # Override core text writers so all downstream sections are protected
+    def cell(self, w, h=0, txt="", border=0, ln=0, align="", fill=False, link=""):
+        return super().cell(w, h, self._latin1(txt), border, ln, align, fill, link)
+
+    def multi_cell(self, w, h, txt="", border=0, align="J", fill=False):
+        return super().multi_cell(w, h, self._latin1(txt), border, align, fill)
+
     def header(self):
         # Outer box
         x0, y0, w = self._hdr_x, self._hdr_y, self._hdr_w
@@ -52,10 +75,10 @@ class ProductionPDF(FPDF):
         self.set_font("Arial", "B", 18)
         self.cell(w, r1, "Production Schedule Report", border=0, ln=1, align="C")
 
-        # Row 2: date and page
+        # Row 2: date and page  (IMPORTANT: use ASCII hyphen, not unicode en dash)
         self.set_xy(x0, y0 + r1)
         self.set_font("Arial", "B", 14)
-        self.cell(w, r2, f"{self.header_date_str} – Page {self.page_no()}", border=0, ln=1, align="C")
+        self.cell(w, r2, f"{self.header_date_str} - Page {self.page_no()}", border=0, ln=1, align="C")
 
         # Horizontal lines between rows
         y = y0 + r1
@@ -239,7 +262,7 @@ def parse_daily_filename(name: str):
         return None, None
 
 def human_label_from_filename(name: str):
-    # AU date + time from filename
+    # AU date + time from filename (UI only)
     d, t = parse_daily_filename(name)
     if not d or not t:
         return name
@@ -266,13 +289,13 @@ def month_label(year: int, month: int):
     return f"{calendar.month_name[month]} {year}"
 
 def weekly_pretty_label(name: str) -> str:
+    # UI only
     n = name.replace("weekly_summary_", "").replace(".pdf", "")
     try:
         rng, tm = n.rsplit("_", 1)
         start, _, end = rng.partition("_to_")
         d1 = datetime.strptime(start, "%Y-%m-%d").strftime("%d/%m/%Y")
         d2 = datetime.strptime(end,   "%Y-%m-%d").strftime("%d/%m/%Y")
-        # include time for disambiguation
         tlabel = datetime.strptime(tm, "%H-%M-%S").strftime("%I:%M %p").lstrip("0")
         return f"Weekly Summary — {d1} to {d2} — {tlabel}"
     except Exception:
@@ -399,16 +422,12 @@ with tab2:
         if daily_search:
             daily_files = [f for f in daily_files if daily_search.lower() in f["name"].lower()]
 
-        # group by month
         groups = {}
         for f in daily_files:
             key = month_group_key(f["name"])
             groups.setdefault(key, []).append(f)
 
-        # sort groups by (year, month) desc; (-1,-1) sinks to bottom
         sorted_groups = sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
-
-        # current month open by default
         today_dt = datetime.now(LOCAL_TZ)
         current_key = (today_dt.year, today_dt.month)
 
@@ -421,7 +440,6 @@ with tab2:
 
                 with st.expander(label, expanded=expanded):
 
-                    # sort by date/time desc using parsed timestamp
                     def ts(f):
                         d, t = parse_daily_filename(f["name"])
                         try:
@@ -489,7 +507,7 @@ with tab2:
                             st.session_state["history_weekly"] = list_files_from_github(GITHUB_WEEKLY_PDF)
                             st.rerun()
                         else:
-                            st.error("Failed to delete weekly report. Check your GitHub token/permissions.")
+                            st.error("Failed to delete weekly summary. Check your GitHub token/permissions.")
 
 # ----------------- TAB 3: Weekly Summary -----------------
 with tab3:
@@ -501,7 +519,6 @@ with tab3:
     with tabs_week[0]:
         st.caption("Pick a week, then choose daily reports in that range — I’ll fetch their paired CSVs automatically.")
 
-        # Week selector first (also used as filter)
         today = date.today()
         default_start = today - timedelta(days=today.weekday())   # Monday
         default_end = default_start + timedelta(days=6)           # Sunday
@@ -567,14 +584,14 @@ with tab3:
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
                 weekly_df = merged.groupby("Product name", as_index=False).sum(numeric_only=True)
-                # Keep only expected columns in order
+
                 keep_cols = [c for c in ["Product name","Already Made","Total"] if c in weekly_df.columns]
                 weekly_df = weekly_df[keep_cols]
-                # Ensure columns exist
                 if "Already Made" not in weekly_df.columns:
                     weekly_df["Already Made"] = 0
                 if "Total" not in weekly_df.columns:
                     weekly_df["Total"] = 0
+
                 weekly_df["Adjustments"] = 0
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
                     lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
@@ -593,7 +610,7 @@ with tab3:
                 st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
-                    header_date = f"{week_start.strftime('%d/%m/%Y')}–{week_end.strftime('%d/%m/%Y')}"
+                    header_date = f"{week_start.strftime('%d/%m/%Y')}-{week_end.strftime('%d/%m/%Y')}"
                     pdf = ProductionPDF(header_date_str=header_date)
                     pdf.set_auto_page_break(False)
 
@@ -651,6 +668,7 @@ with tab3:
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
                 weekly_df = merged.groupby("Product name", as_index=False)["Quantity"].sum().rename(columns={"Quantity":"Total"})
+                weekly_df["Already Made"] = 0
                 weekly_df["Adjustments"] = 0
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
                     lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
@@ -669,7 +687,7 @@ with tab3:
                 st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
-                    header_date = f"{week_start2.strftime('%d/%m/%Y')}–{week_end2.strftime('%d/%m/%Y')}"
+                    header_date = f"{week_start2.strftime('%d/%m/%Y')}-{week_end2.strftime('%d/%m/%Y')}"
                     pdf = ProductionPDF(header_date_str=header_date)
                     pdf.set_auto_page_break(False)
 
