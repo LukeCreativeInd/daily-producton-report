@@ -1,5 +1,5 @@
 import math
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
     left_x = xpos[0]
@@ -37,9 +37,9 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         total = qty * amt
         pdf.set_x(left_x)
         pdf.cell(col_w * 0.4, ch, sauce, 1)
-        pdf.cell(col_w * 0.2, ch, fmt_weight(qty), 1)
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(qty), 1)
         pdf.cell(col_w * 0.2, ch, str(int(amt)), 1)
-        pdf.cell(col_w * 0.2, ch, fmt_weight(total), 1)
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(total), 1)
         pdf.ln(ch)
     left_end_y = pdf.get_y()
 
@@ -61,12 +61,12 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
 
     for ing, qty in [("Salsa", 43), ("Black Beans", 50), ("Corn", 50), ("Rice", 130)]:
         total = qty * amt
-        total_per_batch = (total / batches) if batches else total
+        total_per_batch = math.ceil(total / batches) if batches else total
         pdf.set_x(right_x)
         pdf.cell(col_w * 0.23, ch, ing, 1)
-        pdf.cell(col_w * 0.17, ch, fmt_weight(qty), 1)
+        pdf.cell(col_w * 0.17, ch, fmt_int_up(qty), 1)
         pdf.cell(col_w * 0.17, ch, str(int(amt)), 1)
-        pdf.cell(col_w * 0.21, ch, fmt_weight(total_per_batch), 1)
+        pdf.cell(col_w * 0.21, ch, fmt_int_up(total_per_batch), 1)
         pdf.cell(col_w * 0.22, ch, str(batches), 1)
         pdf.ln(ch)
     right_end_y = pdf.get_y()
@@ -91,9 +91,9 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         total = qty * parma_amt
         pdf.set_x(left_x)
         pdf.cell(col_w * 0.4, ch, ing, 1)
-        pdf.cell(col_w * 0.2, ch, fmt_weight(qty), 1)
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(qty), 1)
         pdf.cell(col_w * 0.2, ch, str(int(parma_amt)), 1)
-        pdf.cell(col_w * 0.2, ch, fmt_weight(total), 1)
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(total), 1)
         pdf.ln(ch)
 
     parma_end_y = pdf.get_y()
@@ -118,8 +118,8 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
 
     pdf.set_x(left_x)
     pdf.cell(col_w * 0.4, ch, "Sundried Tomatos", 1)
-    pdf.cell(col_w * 0.2, ch, fmt_weight(sundried_qty), 1)
+    pdf.cell(col_w * 0.2, ch, fmt_int_up(sundried_qty), 1)
     pdf.cell(col_w * 0.2, ch, str(int(pesto_meals)), 1)
-    pdf.cell(col_w * 0.2, ch, fmt_weight(sundried_total), 1)
+    pdf.cell(col_w * 0.2, ch, fmt_int_up(sundried_total), 1)
 
     return pdf.get_y() + pad
