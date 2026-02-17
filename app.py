@@ -9,6 +9,17 @@ import math
 import calendar
 from zoneinfo import ZoneInfo
 
+def fmt_weight(value):
+    """
+    Formats all weight outputs to 2 decimal places.
+    Removes floating point artifacts.
+    """
+    try:
+        return f"{round(float(value), 2):.2f}"
+    except:
+        return "0.00"
+
+
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
 from sauces_section import draw_sauces_section
