@@ -1,6 +1,6 @@
 import math
 from datetime import datetime
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
 bulk_sections = [
@@ -113,9 +113,9 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.4, ch, ingr[:20], 1)
-            pdf.cell(col_w * 0.15, ch, fmt_weight(per), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_int_up(per), 1)
             pdf.cell(col_w * 0.15, ch, str(total_meals), 1)
-            pdf.cell(col_w * 0.15, ch, fmt_weight(adj), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_int_up(adj), 1)
             pdf.cell(col_w * 0.15, ch, lbl, 1)
             pdf.ln(ch)
 
