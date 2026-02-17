@@ -1,15 +1,17 @@
 import math
 
-def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y):
-    # Add section title at the top of the page or at the current position
-    if start_y is not None:
-        pdf.set_y(start_y)
-    else:
-        pdf.set_y(pdf.get_y())
+def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
+    """
+    Always starts on a NEW page (so it doesn't run directly after Sauces).
+    Ignores start_y intentionally — header() controls the top spacing now.
+    """
+
+    pdf.add_page()
+
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Chicken Mixing", ln=1, align='C')
     pdf.ln(2)
-    # Start just below the title for both columns
+
     heights = [pdf.get_y(), pdf.get_y()]
     col = 0
 
@@ -18,48 +20,61 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
         ("Butter Chicken", [("Chicken", 123), ("Sauce", 90)], "BUTTER CHICKEN", 50, 2),
         ("Broccoli Pasta", [("Chicken", 102), ("Sauce", 100)], "CHICKEN AND BROCCOLI PASTA", 50, 1),
         ("Thai", [("Chicken", 115.36), ("Sauce", 92.7)], "THAI GREEN CHICKEN CURRY", 50, 1),
-        ("Gnocchi", [("Gnocchi", 147), ("Chicken", 80), ("Sauce", 200), ("Spinach", 25)], "CREAMY CHICKEN & MUSHROOM GNOCCHI", 36, 1)
+        ("Gnocchi", [("Gnocchi", 147), ("Chicken", 80), ("Sauce", 200), ("Spinach", 25)], "CREAMY CHICKEN & MUSHROOM GNOCCHI", 36, 1),
     ]
 
     def next_pos(heights, col, block_h):
+        # balance columns first
+        col = 0 if heights[0] <= heights[1] else 1
+
+        # if doesn't fit in chosen col, try other col
         if heights[col] + block_h > bottom:
             col = 1 - col
-            if heights[col] + block_h > bottom:
-                pdf.add_page()
-                # Add the section header again at the top of the new page
-                pdf.set_font("Arial", "B", 14)
-                pdf.cell(0, 10, "Chicken Mixing (cont.)", ln=1, align='C')
-                pdf.ln(2)
-                heights = [pdf.get_y(), pdf.get_y()]
-                col = 0
+
+        # if still doesn't fit, add a new page
+        if heights[col] + block_h > bottom:
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 14)
+            pdf.cell(0, 10, "Chicken Mixing (cont.)", ln=1, align='C')
+            pdf.ln(2)
+            heights = [pdf.get_y(), pdf.get_y()]
+            col = 0
+
         return heights, col
 
     for name, ingredients, meal_key, divisor, extra in mixes:
         block_h = (2 + len(ingredients)) * ch + pad
         heights, col = next_pos(heights, col, block_h)
+
         x, y = xpos[col], heights[col]
         pdf.set_xy(x, y)
-        amt = meal_totals.get(meal_key, 0)
+
+        amt = meal_totals.get(meal_key.upper(), 0)
         batches = math.ceil((amt + extra) / divisor) if divisor else 1
+
         pdf.set_font("Arial", "B", 11)
         pdf.set_fill_color(230, 230, 230)
         pdf.cell(col_w, ch, name, ln=1, fill=True)
+
         pdf.set_font("Arial", "B", 8)
         pdf.set_x(x)
         for h, w in [("Ingredient", 0.22), ("Qty/Batch", 0.18), ("Amount", 0.18), ("Total", 0.21), ("Batches", 0.21)]:
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
+
         pdf.set_font("Arial", "", 8)
         for ing, qty in ingredients:
             total = qty * amt
             total_per_batch = math.ceil(total / batches) if batches else total
+
             pdf.set_x(x)
-            pdf.cell(col_w * 0.22, ch, ing, 1)
+            pdf.cell(col_w * 0.22, ch, str(ing), 1)
             pdf.cell(col_w * 0.18, ch, str(qty), 1)
             pdf.cell(col_w * 0.18, ch, str(amt), 1)
             pdf.cell(col_w * 0.21, ch, str(total_per_batch), 1)
             pdf.cell(col_w * 0.21, ch, str(batches), 1)
             pdf.ln(ch)
+
         heights[col] = pdf.get_y() + pad
 
     return max(heights)
