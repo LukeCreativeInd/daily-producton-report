@@ -4,26 +4,23 @@ def draw_meat_veg_section(
     pdf, meal_totals, meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None
 ):
     """
-    Two-column layout:
-      - Left: Veg Prep
-      - Right: Meat Order
-
-    This keeps the page aligned with the new global header (no overlap),
-    and prevents the veg table being cut off by splitting content into columns.
+    Always starts on a new page.
+    Two columns:
+      - LEFT: Veg Prep
+      - RIGHT: Meat Order
+    Meat Order is rendered FIRST so it always appears on page 1.
     """
 
     pdf.add_page()
 
-    # Start directly below the header (header() already sets y correctly).
-    if start_y is not None:
-        pdf.set_y(start_y)
-
-    # --- Page title (centered) ---
+    # IMPORTANT: ignore start_y (it comes from prior section and can force mid-page starts)
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
     pdf.ln(2)
 
     y_top = pdf.get_y()
+    left_x = xpos[0]
+    right_x = xpos[1]
 
     # -----------------------------
     # Helpers
@@ -42,11 +39,8 @@ def draw_meat_veg_section(
             return round(qty * total_meals)
         return 0
 
-    def sum_totals_recipe_ingredients(recipe_list, ingredient, ingredient_override=None, multiplier=None):
-        total_meals = 0
-        for rec in recipe_list:
-            total_meals += meal_totals.get(rec.upper(), 0)
-
+    def sum_totals_recipe_ingredients(recipe_list, ingredient, multiplier=None):
+        total_meals = sum(meal_totals.get(rec.upper(), 0) for rec in recipe_list)
         if multiplier is not None:
             return total_meals * multiplier
 
@@ -54,8 +48,7 @@ def draw_meat_veg_section(
         for rec in recipe_list:
             data = meal_recipes.get(rec, {})
             meals = meal_totals.get(rec.upper(), 0)
-            ing = ingredient_override if ingredient_override else ingredient
-            qty = data.get("ingredients", {}).get(ing, 0)
+            qty = data.get("ingredients", {}).get(ingredient, 0)
             total += qty * meals
         return total
 
@@ -67,9 +60,7 @@ def draw_meat_veg_section(
         batches = math.ceil(meals / batch) if batch > 0 else 1
         total = qty * meals
         batch_total = (qty * meals) // batches if batches > 1 else total
-        if batches > 1:
-            return batch_total * batches
-        return total
+        return batch_total * batches if batches > 1 else total
 
     def get_bulk_total(bulk_title, ingredient):
         section = next((b for b in bulk_sections if b["title"] == bulk_title), None)
@@ -80,9 +71,7 @@ def draw_meat_veg_section(
             batches = math.ceil(total_meals / batch_size) if batch_size > 0 else 1
             total = qty * total_meals
             batch_total = (qty * total_meals) // batches if batches > 1 else total
-            if batches > 1:
-                return batch_total * batches
-            return total
+            return batch_total * batches if batches > 1 else total
         return 0
 
     def get_total_from_chicken_mixing():
@@ -92,9 +81,7 @@ def draw_meat_veg_section(
         raw_b = math.ceil(meals / divisor) if divisor > 0 else 0
         batches = raw_b + (raw_b % 2) if raw_b > 0 else 0
         total = (qty * meals) // batches if batches else qty * meals
-        if batches > 1:
-            return total * batches
-        return qty * meals
+        return total * batches if batches > 1 else qty * meals
 
     # -----------------------------
     # Data
@@ -105,8 +92,7 @@ def draw_meat_veg_section(
         ("MINCE",
             sum_totals_recipe_ingredients(
                 ["Spaghetti Bolognese", "Shepherd's Pie", "Beef Chow Mein", "Beef Burrito Bowl"], "Beef Mince"
-            ) +
-            sum_totals_recipe_ingredients(["Beef Meatballs"], "Mince")
+            ) + sum_totals_recipe_ingredients(["Beef Meatballs"], "Mince")
         ),
         ("TOPSIDE STEAK",
             get_total_bulk_ingredient("Steak", "Steak") +
@@ -166,66 +152,7 @@ def draw_meat_veg_section(
     ]
 
     # -----------------------------
-    # Render LEFT column: Veg Prep
-    # -----------------------------
-    left_x = xpos[0]
-    right_x = xpos[1]
-
-    # Veg Prep block
-    pdf.set_xy(left_x, y_top)
-    pdf.set_font("Arial", "B", 11)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(col_w, ch, "Veg Prep", ln=1, fill=True)
-
-    pdf.set_x(left_x)
-    pdf.set_font("Arial", "B", 8)
-    pdf.cell(col_w * 0.7, ch, "Veg Prep", 1)
-    pdf.cell(col_w * 0.3, ch, "Amount (g)", 1)
-    pdf.ln(ch)
-
-    pdf.set_font("Arial", "", 8)
-    for veg, amt in veg_prep:
-        # Basic safety: if we ever approach bottom, start a new page and redraw BOTH headers
-        if pdf.get_y() + ch > bottom:
-            pdf.add_page()
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
-            pdf.ln(2)
-            y_top = pdf.get_y()
-
-            # Redraw Veg header on new page (left)
-            pdf.set_xy(left_x, y_top)
-            pdf.set_font("Arial", "B", 11)
-            pdf.set_fill_color(230, 230, 230)
-            pdf.cell(col_w, ch, "Veg Prep (cont.)", ln=1, fill=True)
-
-            pdf.set_x(left_x)
-            pdf.set_font("Arial", "B", 8)
-            pdf.cell(col_w * 0.7, ch, "Veg Prep", 1)
-            pdf.cell(col_w * 0.3, ch, "Amount (g)", 1)
-            pdf.ln(ch)
-
-            # Redraw Meat header on new page (right)
-            pdf.set_xy(right_x, y_top)
-            pdf.set_font("Arial", "B", 11)
-            pdf.set_fill_color(230, 230, 230)
-            pdf.cell(col_w, ch, "Meat Order (cont.)", ln=1, fill=True)
-
-            pdf.set_x(right_x)
-            pdf.set_font("Arial", "B", 8)
-            pdf.cell(col_w * 0.6, ch, "Meat Type", 1)
-            pdf.cell(col_w * 0.4, ch, "Amount (g)", 1)
-            pdf.ln(ch)
-
-            pdf.set_font("Arial", "", 8)
-
-        pdf.set_x(left_x)
-        pdf.cell(col_w * 0.7, ch, veg, 1)
-        pdf.cell(col_w * 0.3, ch, str(int(round(amt))), 1)
-        pdf.ln(ch)
-
-    # -----------------------------
-    # Render RIGHT column: Meat Order
+    # RIGHT column: Meat Order (render first so it's always on page 1)
     # -----------------------------
     pdf.set_xy(right_x, y_top)
     pdf.set_font("Arial", "B", 11)
@@ -240,41 +167,51 @@ def draw_meat_veg_section(
 
     pdf.set_font("Arial", "", 8)
     for mtype, amt in meat_order:
-        # If right column runs out (unlikely), use same new-page logic.
+        pdf.set_x(right_x)
+        pdf.cell(col_w * 0.6, ch, mtype, 1)
+        pdf.cell(col_w * 0.4, ch, str(int(round(amt))), 1)
+        pdf.ln(ch)
+
+    # -----------------------------
+    # LEFT column: Veg Prep
+    # -----------------------------
+    pdf.set_xy(left_x, y_top)
+    pdf.set_font("Arial", "B", 11)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(col_w, ch, "Veg Prep", ln=1, fill=True)
+
+    pdf.set_x(left_x)
+    pdf.set_font("Arial", "B", 8)
+    pdf.cell(col_w * 0.7, ch, "Veg Prep", 1)
+    pdf.cell(col_w * 0.3, ch, "Amount (g)", 1)
+    pdf.ln(ch)
+
+    pdf.set_font("Arial", "", 8)
+    for veg, amt in veg_prep:
         if pdf.get_y() + ch > bottom:
+            # If veg ever continues, it continues on a new page by itself (meat stays on page 1)
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Meat Order and Veg Prep", ln=1, align="C")
+            pdf.cell(0, 10, "Meat Order and Veg Prep (cont.)", ln=1, align="C")
             pdf.ln(2)
-            y_top = pdf.get_y()
+            y2 = pdf.get_y()
 
-            # redraw veg header (left)
-            pdf.set_xy(left_x, y_top)
+            pdf.set_xy(left_x, y2)
             pdf.set_font("Arial", "B", 11)
             pdf.set_fill_color(230, 230, 230)
             pdf.cell(col_w, ch, "Veg Prep (cont.)", ln=1, fill=True)
+
             pdf.set_x(left_x)
             pdf.set_font("Arial", "B", 8)
             pdf.cell(col_w * 0.7, ch, "Veg Prep", 1)
             pdf.cell(col_w * 0.3, ch, "Amount (g)", 1)
             pdf.ln(ch)
 
-            # redraw meat header (right)
-            pdf.set_xy(right_x, y_top)
-            pdf.set_font("Arial", "B", 11)
-            pdf.set_fill_color(230, 230, 230)
-            pdf.cell(col_w, ch, "Meat Order (cont.)", ln=1, fill=True)
-            pdf.set_x(right_x)
-            pdf.set_font("Arial", "B", 8)
-            pdf.cell(col_w * 0.6, ch, "Meat Type", 1)
-            pdf.cell(col_w * 0.4, ch, "Amount (g)", 1)
-            pdf.ln(ch)
             pdf.set_font("Arial", "", 8)
 
-        pdf.set_x(right_x)
-        pdf.cell(col_w * 0.6, ch, mtype, 1)
-        pdf.cell(col_w * 0.4, ch, str(int(round(amt))), 1)
+        pdf.set_x(left_x)
+        pdf.cell(col_w * 0.7, ch, veg, 1)
+        pdf.cell(col_w * 0.3, ch, str(int(round(amt))), 1)
         pdf.ln(ch)
 
-    # Return y position
     return pdf.get_y()
