@@ -56,7 +56,12 @@ def draw_meat_veg_section(
         batch = data.get("batch", 0)
         batches = math.ceil(meals / batch) if batch > 0 else 1
         total = qty * meals
-        return (total / batches) * batches if batches > 1 else total
+        
+        # ✅ Batches must remain whole numbers — if batching applies, floor to full batches
+        if batches > 1:
+            per_batch = (total // batches) if batches else total
+            return per_batch * batches
+        return total
 
     def get_bulk_total(bulk_title, ingredient):
         section = next((b for b in bulk_sections if b["title"] == bulk_title), None)
@@ -66,7 +71,12 @@ def draw_meat_veg_section(
             batch_size = section.get("batch_size", 0)
             batches = math.ceil(total_meals / batch_size) if batch_size > 0 else 1
             total = qty * total_meals
-            return (total / batches) * batches if batches > 1 else total
+        
+            # ✅ Batches must remain whole numbers — if batching applies, floor to full batches
+            if batches > 1:
+                per_batch = (total // batches) if batches else total
+                return per_batch * batches
+            return total
         return 0
 
     def get_total_from_chicken_mixing():
@@ -75,8 +85,13 @@ def draw_meat_veg_section(
         divisor = 36
         raw_b = math.ceil(meals / divisor) if divisor > 0 else 0
         batches = raw_b + (raw_b % 2) if raw_b > 0 else 0
-        total = (qty * meals) / batches if batches else qty * meals
-        return total * batches if batches > 1 else qty * meals
+        
+        total = qty * meals
+        # ✅ Batches must remain whole numbers — floor to full batches when batching applies
+        if batches > 1:
+            per_batch = (total // batches) if batches else total
+            return per_batch * batches
+        return total
 
     meat_order = [
         ("CHUCK ROLL (LEBO)", get_total_recipe_ingredient("Lebanese Beef Stew", "Chuck Diced")),
