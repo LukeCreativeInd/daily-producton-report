@@ -1,5 +1,5 @@
 import math
-from utils import fmt_weight
+from utils import fmt_int_up, fmt_weight
 
 # Export meal_recipes for use elsewhere
 meal_recipes = {
@@ -207,9 +207,9 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.3, ch, ing[:20], 1)
-            pdf.cell(col_w * 0.15, ch, fmt_weight(qty), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_int_up(qty), 1)
             pdf.cell(col_w * 0.15, ch, str(tot), 1)
-            pdf.cell(col_w * 0.25, ch, fmt_weight(bt), 1)
+            pdf.cell(col_w * 0.25, ch, fmt_int_up(bt), 1)
             pdf.cell(col_w * 0.15, ch, bl, 1)
             pdf.ln(ch)
 
@@ -230,9 +230,9 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
                 adj = per * tot
                 pdf.set_x(x)
                 pdf.cell(col_w * 0.3, ch, str(ingr)[:20], 1)
-                pdf.cell(col_w * 0.15, ch, fmt_weight(per), 1)
+                pdf.cell(col_w * 0.15, ch, fmt_int_up(per), 1)
                 pdf.cell(col_w * 0.15, ch, str(tot), 1)
-                pdf.cell(col_w * 0.25, ch, fmt_weight(adj), 1)
+                pdf.cell(col_w * 0.25, ch, fmt_int_up(adj), 1)
                 pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
 
