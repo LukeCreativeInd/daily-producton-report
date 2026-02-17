@@ -1,5 +1,6 @@
 import math
 from datetime import datetime
+from utils import fmt_weight
 
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
 bulk_sections = [
@@ -18,8 +19,8 @@ bulk_sections = [
          "Mongolian Beef",
          "Butter Chicken",
          "Thai Green Chicken Curry",
-         "Bean Nachos with Rice",        
-         "Chicken Fajita Bowl"           
+         "Bean Nachos with Rice",
+         "Chicken Fajita Bowl"
      ]},
     {"title": "Moroccan Chicken", "batch_ingredient": "Chicken", "batch_size": 0,
      "ingredients": {"Chicken": 180, "Oil": 2, "Lemon Juice": 6, "Moroccan Chicken Mix": 4},
@@ -73,6 +74,7 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
 
     heights = [pdf.get_y(), pdf.get_y()]
     col = 0
+
     def next_pos(heights, col, block_h, title=None):
         if heights[col] + block_h > bottom:
             col = 1 - col
@@ -93,24 +95,30 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
         pdf.set_font("Arial", "B", 11)
         pdf.set_fill_color(230, 230, 230)
         pdf.cell(col_w, ch, sec['title'], ln=1, fill=True)
+
         pdf.set_x(x)
         pdf.set_font("Arial", "B", 8)
         for h, w in [("Ingredient", 0.4), ("Qty/Meal", 0.15), ("Meals", 0.15), ("Total", 0.15), ("Batches", 0.15)]:
             pdf.cell(col_w * w, ch, h, 1)
         pdf.ln(ch)
+
         pdf.set_font("Arial", "", 8)
         total_meals = sum(meal_totals.get(m.upper(), 0) for m in sec['meals'])
         batches = math.ceil(total_meals / sec['batch_size']) if sec['batch_size'] > 0 else 0
+
         for ingr, per in sec['ingredients'].items():
             qty = per * total_meals
-            adj = round(qty / batches) if batches else round(qty, 2)
+            adj = (qty / batches) if batches else qty
             lbl = str(batches) if ingr == sec['batch_ingredient'] else ""
+
             pdf.set_x(x)
             pdf.cell(col_w * 0.4, ch, ingr[:20], 1)
-            pdf.cell(col_w * 0.15, ch, str(per), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_weight(per), 1)
             pdf.cell(col_w * 0.15, ch, str(total_meals), 1)
-            pdf.cell(col_w * 0.15, ch, str(adj), 1)
+            pdf.cell(col_w * 0.15, ch, fmt_weight(adj), 1)
             pdf.cell(col_w * 0.15, ch, lbl, 1)
             pdf.ln(ch)
+
         heights[col] = pdf.get_y() + pad
+
     return max(heights)
