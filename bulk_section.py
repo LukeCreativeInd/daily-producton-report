@@ -29,11 +29,9 @@ bulk_sections = [
      "ingredients": {"Chicken": 180, "Oil": 2, "Lemon Juice": 6, "Moroccan Chicken Mix": 4},
      "meals": ["Moroccan Chicken"]},
 
-    # Renamed Chicken Thigh -> Premixed Chicken Thigh, and hide+fold Oil + Roast Chicken Mix into chicken
+    # Premixed Chicken Thigh (no oil/mix lines – total is meals x 160)
     {"title": "Premixed Chicken Thigh", "batch_ingredient": "Premixed Chicken Thigh", "batch_size": 0,
-     "ingredients": {"Premixed Chicken Thigh": 168, "Oil": 2, "Roast Chicken Mix": 4},
-     "hide_ingredients": ["Oil", "Roast Chicken Mix"],
-     "fold_hidden_into": "Premixed Chicken Thigh",
+     "ingredients": {"Premixed Chicken Thigh": 160},
      "meals": ["Chicken Fajita Bowl", "Naked Chicken Parma"]},
 
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
@@ -90,28 +88,42 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
     """
     Draws the bulk section tables in a 2-column layout.
     Ensures each block stays intact and respects existing header offset (start_y).
+
+    NOTE: app.py passes xpos as a 2-item list of X positions.
+    This function supports both list/tuple (preferred) and a single numeric xpos.
     """
+    # xpos can be [left, right] from app.py
+    if isinstance(xpos, (list, tuple)):
+        col_x = [float(xpos[0]), float(xpos[1])]
+        left_x = col_x[0]
+    else:
+        left_x = float(xpos)
+        col_x = [left_x, left_x + col_w + pad]
+
     y = pdf.get_y() if start_y is None else start_y
-    pdf.set_xy(xpos, y)
+    pdf.set_xy(left_x, y)
 
     # Use header date provided by app.py (do not alter HACCP logic in app.py)
     if header_date is None:
         header_date = datetime.now().strftime("%d/%m/%Y")
 
-    def ensure_space(needed_h):
-        nonlocal y
-        if y + needed_h > bottom:
+    def ensure_space(needed_h, cur_y):
+        """
+        Ensures there is enough vertical space. If not, add a page and return new y.
+        Must respect HACCP header offset via pdf.get_y().
+        """
+        if cur_y + needed_h > bottom:
             pdf.add_page()
-            y = pdf.get_y()
-            pdf.set_xy(xpos, y)
+            return pdf.get_y()
+        return cur_y
 
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(col_w * 2 + pad, ch, "Bulk Raw Ingredients to Cook", 0, 1, "C")
-    y = pdf.get_y() + pad
-    pdf.set_xy(xpos, y)
 
-    # two columns
-    col_x = [xpos, xpos + col_w + pad]
+    y = pdf.get_y() + pad
+    pdf.set_xy(left_x, y)
+
+    # Track y for both columns
     heights = [y, y]
     col = 0
 
@@ -121,17 +133,19 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
 
         # estimate block height: title + header + ingredient rows
         if sec.get("custom_type") == "sweet_potato_split":
-            # Now displayed as 3 ratio rows (Sweet Potato / Salt / White Pepper)
+            # Displayed as 3 ratio rows (Sweet Potato / Salt / White Pepper)
             est_rows = 3
         else:
             est_rows = len(sec.get("ingredients", {}))
             hide = set(sec.get("hide_ingredients", []))
-            est_rows -= len([k for k in sec.get("ingredients", {}).keys() if k in hide])
+            if hide:
+                est_rows -= len([k for k in sec.get("ingredients", {}).keys() if k in hide])
 
         needed_h = ch + ch + (est_rows + 1) * ch + pad * 2
+
+        # Set cursor to the current column
         y = heights[col]
-        pdf.set_xy(col_x[col], y)
-        ensure_space(needed_h)
+        y = ensure_space(needed_h, y)
         pdf.set_xy(col_x[col], y)
 
         # title
@@ -155,7 +169,6 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
             meals_map = sec.get("meals", {})
             items = list(meals_map.items())
             if len(items) != 2:
-                # fallback: nothing to do
                 heights[col] = pdf.get_y() + pad
                 col = 1 - col
                 continue
@@ -165,34 +178,30 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
             n2 = int(meal_totals.get(meal2.upper(), 0) or 0)
 
             # Hidden calculations (must remain correct)
-            t1 = per1 * n1
-            t2 = per2 * n2
-            total_potato = t1 + t2
+            total_potato = (per1 * n1) + (per2 * n2)
 
-            # Display as a final recipe ratio table (hide the meal-specific lines)
-            # We keep the underlying meal-specific calculations to ensure total_potato is correct,
-            # then allocate total_potato by the recipe ratios shown in the table.
+            # Display as final recipe ratio allocation based on the "Qty/Meal" recipe column
             sweet_qty = 200.0
-            salt_qty = float(sec["seasoning_per_200"].get("Salt", 0) or 0)
-            pep_qty = float(sec["seasoning_per_200"].get("White Pepper", 0) or 0)
-
+            salt_qty = float(sec.get("seasoning_per_200", {}).get("Salt", 0) or 0)
+            pep_qty = float(sec.get("seasoning_per_200", {}).get("White Pepper", 0) or 0)
             denom = sweet_qty + salt_qty + pep_qty
 
             def pct(x):
                 return (x / denom) if denom else 0.0
 
-            def row_ratio(name, qty, pct_val, total_alloc):
-                # Qty/Meal column shows the base recipe ratio (e.g., 200 / 1 / 0.5)
-                # Meals column shows the percentage of total potato weight to allocate
+            def row_ratio(name, qty):
+                p = pct(qty)
+                alloc = total_potato * p
                 pdf.cell(col_w * 0.55, ch, name, 1)
                 pdf.cell(col_w * 0.15, ch, fmt_qty(qty), 1)
-                pdf.cell(col_w * 0.15, ch, f"{pct_val * 100:.1f}%", 1)
-                pdf.cell(col_w * 0.15, ch, fmt_int_up(total_alloc), 1)
+                pdf.cell(col_w * 0.15, ch, f"{p * 100:.1f}%", 1)
+                pdf.cell(col_w * 0.15, ch, fmt_int_up(alloc), 1)
+                pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
 
-            row_ratio("Sweet Potato", sweet_qty, pct(sweet_qty), total_potato * pct(sweet_qty))
-            row_ratio("Salt", salt_qty, pct(salt_qty), total_potato * pct(salt_qty))
-            row_ratio("White Pepper", pep_qty, pct(pep_qty), total_potato * pct(pep_qty))
+            row_ratio("Sweet Potato", sweet_qty)
+            row_ratio("Salt", salt_qty)
+            row_ratio("White Pepper", pep_qty)
 
             heights[col] = pdf.get_y() + pad
             col = 1 - col
@@ -222,14 +231,18 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
         for ingr, per in folded.items():
             if ingr in hide:
                 continue
+
             qty = (per or 0) * total_meals
 
+            # Bulk batch behaviour: display per-batch requirement when batch_size is set
             if batch_size and batches:
                 adj_qty = qty / batches
             else:
                 adj_qty = qty
 
-            batches_lbl = str(batches) if (ingr == batch_ingredient and batch_size) else "0" if (ingr == batch_ingredient and batch_size == 0) else ""
+            batches_lbl = str(batches) if (ingr == batch_ingredient and batch_size) else ""
+            if ingr == batch_ingredient and batch_size == 0:
+                batches_lbl = "0"
 
             pdf.cell(col_w * 0.55, ch, ingr[:18], 1)
             pdf.cell(col_w * 0.15, ch, fmt_qty(per), 1)
