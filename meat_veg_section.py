@@ -159,7 +159,7 @@ def draw_meat_veg_section(
                 multiplier=130,
             ),
         ),
-        ("CHICKEN THIGH", get_total_bulk_ingredient("Chicken Thigh", "Chicken")),
+        ("PREMIXED CHICKEN", get_total_bulk_ingredient("Chicken Thigh", "Premixed Chicken")),
     ]
 
     # ---------- Veg Prep (LEFT column) ----------
