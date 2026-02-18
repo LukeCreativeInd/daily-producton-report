@@ -97,6 +97,13 @@ def draw_meat_veg_section(
         if not section:
             return 0
 
+        # Handle custom bulk sections (Sweet Potato Mash uses meal-specific per-meal grams)
+        if section.get("custom_type") == "sweet_potato_split" and ingredient == "Sweet Potato":
+            total = 0
+            for meal_name, per in section.get("meals", {}).items():
+                total += (per or 0) * (meal_totals.get(meal_name.upper(), 0) or 0)
+            return total
+
         total_meals = sum(meal_totals.get(m.upper(), 0) for m in section.get("meals", []))
         qty = section.get("ingredients", {}).get(ingredient, 0)
         batch_size = section.get("batch_size", 0)
