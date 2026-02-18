@@ -34,7 +34,7 @@ bulk_sections = [
     # We hide Oil + Roast Chicken Mix rows, but add their weight into Premixed Chicken totals.
     {"title": "Premixed Chicken Thigh", "batch_ingredient": "Premixed Chicken Thigh", "batch_size": 0,
  "ingredients": {"Premixed Chicken Thigh": 160},
- "meals": ["Chicken Fajita Bowl", "Naked Chicken Parma"]},
+ "meals": ["Chicken Fajita Bowl", "Roasted Lemon Chicken & Potatoes"]},
 
     # Updated Steak quantities
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
