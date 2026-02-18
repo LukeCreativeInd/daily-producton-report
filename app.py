@@ -14,9 +14,7 @@ from utils import fmt_qty  # per-unit
 
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
-from sauces_section import draw_sauces_section
-from fridge_section import draw_fridge_section
-from chicken_mixing_section import draw_chicken_mixing_section
+from prepack_room_section import draw_prepack_room_section
 from meat_veg_section import draw_meat_veg_section
 
 # ---------- PDF Header (HACCP) ----------
@@ -472,8 +470,7 @@ with tab1:
                 "summary": 2,
                 "bulk": 3,
                 "recipes": 2,
-                "sauces_fridge": 1,
-                "chicken_mixing": 1,
+                "prepack_room": 1,
                 "meat_veg": 3,
             }
 
@@ -505,7 +502,6 @@ with tab1:
                 )
 
             # --- Meal Raw Ingredients to Cook (2 copies) ---
-            # Start on a fresh page for cleanliness (each copy starts fresh).
             for c in range(1, copies["recipes"] + 1):
                 pdf.copy_no, pdf.copy_total = c, copies["recipes"]
                 pdf.add_page()
@@ -522,22 +518,19 @@ with tab1:
                     meal_recipes_override=custom_meal_recipes,
                 )
 
-            # --- Sauces + To Pack In Fridge (1 copy, shared pages as-is) ---
-            for c in range(1, copies["sauces_fridge"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["sauces_fridge"]
-                y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None)
-                y = draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=y)
-
-            # --- Chicken Mixing (1 copy) ---
-            for c in range(1, copies["chicken_mixing"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["chicken_mixing"]
-                y = draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None)
-
-            # --- Pre-Pack Room placeholder page (between Chicken Mixing and Meat/Veg) ---
-            pdf.copy_no, pdf.copy_total = 1, 1
-            pdf.add_page()
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Pre-Pack Room", ln=1, align="C")
+            # --- Pre-Pack Room (1 copy) ---
+            for c in range(1, copies["prepack_room"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["prepack_room"]
+                y = draw_prepack_room_section(
+                    pdf,
+                    meal_totals,
+                    xpos,
+                    col_w,
+                    ch,
+                    pad,
+                    bottom,
+                    start_y=None
+                )
 
             # --- Meat Order and Veg Prep (3 copies) ---
             for c in range(1, copies["meat_veg"] + 1):
@@ -778,7 +771,6 @@ with tab3:
                     out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
 
                     title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
-                    # NOTE: weekly summary uses a different path; this stays unchanged
                     pdf.add_page()
                     pdf.set_font("Arial", "B", 13)
                     pdf.cell(0, 9, title, ln=1, align='C')
