@@ -55,7 +55,7 @@ bulk_sections = [
 
     {"title": "Roasted Parma Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 63,
      "ingredients": {"Roasted Potatoes": 190, "Oil": 1.62, "Spices Mix": 2.5},
-     "meals": ["Naked Chicken Parma", "Spaghetti Bolognese"]},
+     "meals": ["Naked Chicken Parma", "Lamb Souvlaki"]},
 
     {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
      "ingredients": {"Potatoes": 207, "Oil": 2, "Salt": 1.2},
