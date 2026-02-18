@@ -33,10 +33,8 @@ bulk_sections = [
     # Supplier provides premixed chicken with oil + seasoning already included.
     # We hide Oil + Roast Chicken Mix rows, but add their weight into Premixed Chicken totals.
     {"title": "Premixed Chicken Thigh", "batch_ingredient": "Premixed Chicken Thigh", "batch_size": 0,
-     "ingredients": {"Premixed Chicken Thigh": 160, "Oil": 4, "Roast Chicken Mix": 4},
-     "hide_ingredients": ["Oil", "Roast Chicken Mix"],
-     "fold_hidden_into": "Premixed Chicken Thigh",
-     "meals": ["Roasted Lemon Chicken & Potatoes", "Chicken Fajita Bowl"]},
+ "ingredients": {"Premixed Chicken Thigh": 160},
+ "meals": ["Chicken Fajita Bowl", "Naked Chicken Parma"]},
 
     # Updated Steak quantities
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
@@ -57,8 +55,8 @@ bulk_sections = [
      "meals": {
          "Shepherd's Pie": 195,
          "Chicken with Sweet Potato and Beans": 169
-          "custom_meal_qty": {"Shepherd's Pie": 195, "Chicken with Sweet Potato and Beans": 169}},
-# Base seasoning ratios per 200g sweet potato
+     },
+     # Base seasoning ratios per 200g sweet potato
      "seasoning_per_200": {"Salt": 1, "White Pepper": 0.5}},
 
     # Renamed
@@ -137,8 +135,8 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
     for sec in bulk_sections:
         # Custom Sweet Potato Mash rendering
         if sec.get("custom_type") == "sweet_potato_split":
-            # rows: title + headers + 5 lines (2 subtotals + total + salt + pepper)
-            block_h = (2 + 5) * ch + pad
+            # rows: title + headers + 3 lines (Sweet Potato, Salt, White Pepper)
+            block_h = (2 + 3) * ch + pad
             heights, col = ensure_space(heights, block_h, title1)
             x, y = xpos[col], heights[col]
             pdf.set_xy(x, y)
@@ -148,74 +146,42 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
 
             table_headers(x)
 
-            # Meal split totals
-            m1, m2 = list(sec["meals"].items())
-            meal1, per1 = m1
-            meal2, per2 = m2
+            # Hidden correct total potato grams from per-meal values per meal
+            total_potato = 0
+            for meal_name, per_meal in sec["meals"].items():
+                n = int(meal_totals.get(meal_name.upper(), 0) or 0)
+                total_potato += (per_meal or 0) * n
 
-            n1 = int(meal_totals.get(meal1.upper(), 0) or 0)
-            n2 = int(meal_totals.get(meal2.upper(), 0) or 0)
+            # Allocate total_potato by recipe ratios (200 / 1 / 0.5)
+            sweet_qty = 200.0
+            salt_qty = float(sec.get("seasoning_per_200", {}).get("Salt", 0) or 0)
+            pep_qty = float(sec.get("seasoning_per_200", {}).get("White Pepper", 0) or 0)
+            denom = sweet_qty + salt_qty + pep_qty
 
-            t1 = per1 * n1
-            t2 = per2 * n2
-            total_potato = t1 + t2
+            def pct(v):
+                return (v / denom) if denom else 0.0
 
-            # Display lines
-            def row(label, per, meals, total, batches_lbl=""):
+            def ratio_row(label, qty, pct_val, total_alloc):
                 pdf.set_x(x)
                 pdf.cell(col_w * 0.4, ch, str(label)[:20], 1)
-                pdf.cell(col_w * 0.15, ch, "" if per is None else fmt_qty(per), 1)
-                pdf.cell(col_w * 0.15, ch, "" if meals is None else (fmt_qty(meals) if isinstance(meals, float) else str(int(meals))), 1)
-                pdf.cell(col_w * 0.15, ch, fmt_int_up(total) if total is not None else "", 1)
-                pdf.cell(col_w * 0.15, ch, batches_lbl, 1)
+                pdf.cell(col_w * 0.15, ch, fmt_qty(qty), 1)
+                pdf.cell(col_w * 0.15, ch, f"{pct_val * 100:.1f}%", 1)
+                pdf.cell(col_w * 0.15, ch, fmt_int_up(total_alloc), 1)
+                pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
 
-            row(f"Sweet Potato ({meal1})", per1, n1, t1)
-            row(f"Sweet Potato ({meal2})", per2, n2, t2)
-            row("Sweet Potato TOTAL", None, None, total_potato)
-
-            factor = (total_potato / 200.0) if total_potato else 0.0
-            salt_per = sec["seasoning_per_200"].get("Salt", 0)
-            pep_per = sec["seasoning_per_200"].get("White Pepper", 0)
-
-            row("Salt", salt_per, factor, salt_per * factor)
-            row("White Pepper", pep_per, factor, pep_per * factor)
+            ratio_row("Sweet Potato", sweet_qty, pct(sweet_qty), total_potato * pct(sweet_qty))
+            ratio_row("Salt", salt_qty, pct(salt_qty), total_potato * pct(salt_qty))
+            ratio_row("White Pepper", pep_qty, pct(pep_qty), total_potato * pct(pep_qty))
 
             heights[col] = pdf.get_y() + pad
             continue
-
         ingredients = sec.get("ingredients", {})
         hide = set(sec.get("hide_ingredients", []))
         fold_into = sec.get("fold_hidden_into")
 
         # Determine number of visible ingredient lines
         visible_ings = []
-
-# --- Custom display: Sweet Potato Mash ---
-# We keep Qty/Meal ratios exactly as defined in this file (200 / 1 / 0.5),
-# but compute TOTAL POTATO from hidden per-meal quantities in custom_meal_qty,
-# then allocate that total by ratio and display percentages in the Meals column.
-if sec.get("title") == "Sweet Potato Mash" and sec.get("custom_meal_qty"):
-    total_potato = 0
-    for meal_name, per_meal in sec["custom_meal_qty"].items():
-        total_potato += (per_meal or 0) * (meal_totals.get(meal_name.upper(), 0) or 0)
-
-    denom = sum(ingredients.values()) if ingredients else 0
-
-    for ingr, per in ingredients.items():
-        pct = (per / denom) if denom else 0
-        alloc = total_potato * pct
-
-        pdf.set_x(x)
-        pdf.cell(col_w * 0.4, ch, str(ingr)[:20], 1)
-        pdf.cell(col_w * 0.15, ch, fmt_qty(per), 1)  # ratio value (exact)
-        pdf.cell(col_w * 0.15, ch, f"{pct * 100:.1f}%", 1)
-        pdf.cell(col_w * 0.15, ch, fmt_int_up(alloc), 1)  # totals rounded up only
-        pdf.cell(col_w * 0.15, ch, "", 1)  # blank batches cell to preserve table layout
-        pdf.ln(ch)
-
-    heights[col] = pdf.get_y() + pad
-    continue
         for ingr, per in ingredients.items():
             if ingr in hide:
                 continue
