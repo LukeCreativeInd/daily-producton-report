@@ -123,13 +123,23 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_group_heading("Sauces/Mixes to Get Ready")
     heights = group_init_heights()
 
+    # NOTE:
+    # Fajita Sauce + Burrito Sauce are the same sauce (Chunky Salsa).
+    # We hide them from print, but we still calculate their totals.
+    fajita_meals = meal_totals.get("CHICKEN FAJITA BOWL", 0) or 0
+    burrito_meals = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
+    chunky_salsa_amt = int(fajita_meals + burrito_meals)
+    chunky_salsa_total = (33 * fajita_meals) + (43 * burrito_meals)
+
     sauces_to_get_ready = [
         ("MONGOLIAN", 70, "MONGOLIAN BEEF"),
         ("MEATBALLS", 120, "BEEF MEATBALLS"),
         ("LEMON", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("MUSHROOM", 100, "STEAK WITH MUSHROOM SAUCE"),
-        ("FAJITA SAUCE", 33, "CHICKEN FAJITA BOWL"),
-        ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
+        # removed from print: ("FAJITA SAUCE", 33, "CHICKEN FAJITA BOWL"),
+        # removed from print: ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
+        # printed combined row:
+        ("CHUNKY SALSA", None, None),
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
@@ -141,6 +151,16 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     table_headers(x, [("Sauce", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)])
 
     for sauce, qty, meal_key in sauces_to_get_ready:
+        if sauce == "CHUNKY SALSA":
+            # Qty blank, Amt = combined meals, Total = (33*fajita) + (43*burrito)
+            pdf.set_x(x)
+            pdf.cell(col_w * 0.4, ch, "CHUNKY SALSA", 1)
+            pdf.cell(col_w * 0.2, ch, "", 1)  # qty blank
+            pdf.cell(col_w * 0.2, ch, str(int(chunky_salsa_amt)), 1)
+            pdf.cell(col_w * 0.2, ch, fmt_int_up(chunky_salsa_total), 1)
+            pdf.ln(ch)
+            continue
+
         amt = meal_totals.get(meal_key.upper(), 0) or 0
         total = qty * amt
         pdf.set_x(x)
@@ -282,7 +302,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_group_heading("Rice to Mix")
     heights = group_init_heights()
 
-    # Beef Burrito (moved from fridge section)
     amt = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
     batches = math.ceil(amt / 60) if amt else 1
     burrito_ings = [("Salsa", 43), ("Black Beans", 50), ("Corn", 50), ("Rice", 130)]
@@ -309,7 +328,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     heights[col] = pdf.get_y() + pad
 
-    # Butter Chicken (NEW table)
     bc_meals = meal_totals.get("BUTTER CHICKEN", 0) or 0
     bc_batches = math.ceil(bc_meals / 70) if bc_meals else 1
     bc_ings = [("Peas", 40), ("Rice", 130)]
