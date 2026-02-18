@@ -211,7 +211,7 @@ def draw_meat_veg_section(
         ("CRATED CARROTS", get_batch_total("Spaghetti Bolognese", "Carrot") + get_batch_total("Bean Nachos with Rice", "Carrot")),
         ("CRATED ZUCCHINI", get_batch_total("Spaghetti Bolognese", "Zucchini")),
         ("LEMON POTATO", get_bulk_total("Roasted Lemon Potatoes", "Potatoes")),
-        ("ROASTED POTATO", get_bulk_total("Roasted Potatoes", "Roasted Potatoes")),
+        ("ROASTED PARMA POTATO", get_bulk_total("Roasted Parma Potatoes", "Roasted Potatoes")),
         ("THAI POTATOS", get_bulk_total("Roasted Thai Potatoes", "Potato")),
         ("POTATO MASH", get_bulk_total("Potato Mash", "Potato")),
         ("SWEET POTATO MASH", get_bulk_total("Sweet Potato Mash", "Sweet Potato")),
