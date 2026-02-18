@@ -1,5 +1,5 @@
 import math
-from utils import fmt_int_up, fmt_weight, fmt_qty
+from utils import fmt_int_up, fmt_qty
 
 # Export meal_recipes for use elsewhere
 meal_recipes = {
@@ -53,7 +53,7 @@ meal_recipes = {
     "Chicken With Vegetables": {
         "batch": 60,
         "ingredients": {
-            "Chicken": 135, "Corn": 50, "Beans": 60, "Broccoli": 67
+            "Chicken": 135, "Corn": 40, "Beans": 60, "Broccoli": 67
         }
     },
     "Chicken with Sweet Potato and Beans": {
@@ -160,7 +160,7 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
 
     pdf.set_y(start_y or pdf.get_y())
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "Meal Recipes", ln=1, align='C')
+    pdf.cell(0, 10, "Meal Raw Ingredients to Cook", ln=1, align='C')
     pdf.ln(5)
 
     heights = [pdf.get_y(), pdf.get_y()]
@@ -175,7 +175,7 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
         if heights[col] + block_h > bottom:
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Meal Recipes (cont'd)", ln=1, align='C')
+            pdf.cell(0, 10, "Meal Raw Ingredients to Cook (cont'd)", ln=1, align='C')
             pdf.ln(5)
             heights = [pdf.get_y(), pdf.get_y()]
             col = 0
@@ -207,10 +207,8 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.3, ch, ing[:20], 1)
-            # ✅ per-unit exact (as listed)
             pdf.cell(col_w * 0.15, ch, fmt_qty(qty), 1)
             pdf.cell(col_w * 0.15, ch, str(tot), 1)
-            # ✅ totals rounded up
             pdf.cell(col_w * 0.25, ch, fmt_int_up(bt), 1)
             pdf.cell(col_w * 0.15, ch, bl, 1)
             pdf.ln(ch)
@@ -232,10 +230,8 @@ def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y
                 adj = per * tot
                 pdf.set_x(x)
                 pdf.cell(col_w * 0.3, ch, str(ingr)[:20], 1)
-                # ✅ per-unit exact (as listed)
                 pdf.cell(col_w * 0.15, ch, fmt_qty(per), 1)
                 pdf.cell(col_w * 0.15, ch, str(tot), 1)
-                # ✅ totals rounded up
                 pdf.cell(col_w * 0.25, ch, fmt_int_up(adj), 1)
                 pdf.cell(col_w * 0.15, ch, "", 1)
                 pdf.ln(ch)
