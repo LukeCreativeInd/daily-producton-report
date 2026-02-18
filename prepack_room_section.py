@@ -1,22 +1,18 @@
 import math
 from utils import fmt_int_up, fmt_qty
 
+
 def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
     """
     Pre-Pack Room (combined section)
 
-    Combines content previously split across:
-    - sauces_section.py
-    - fridge_section.py
-    - chicken_mixing_section.py
-
     Structure:
-    1) Sauces/Mixes to Prepare
-    2) Sauces/Mixes to Get Ready
-    3) Ingredients to Get Ready
-    4) Chicken to Mix
-    5) Rice to Mix
-    6) Prepack Cooked Ingredient Checks (placeholder for now)
+    - Sauces/Mixes to Prepare
+    - Sauces/Mixes to Get Ready
+    - Ingredients to Get Ready
+    - Chicken to Mix
+    - Rice to Mix
+    - Prepack Cooked Ingredient Checks (placeholder for now)
     """
 
     # Start on a new page for cleanliness
@@ -28,7 +24,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     pdf.ln(2)
 
     def ensure_page_space(block_h: float):
-        # If next block doesn't fit, add a new page and reprint the main title
         if pdf.get_y() + block_h > bottom:
             pdf.add_page()
             pdf.set_font("Arial", "B", 14)
@@ -36,10 +31,10 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
             pdf.ln(2)
 
     def draw_group_heading(title: str):
-        # slightly smaller than main title
+        # Centered, slightly smaller than main title
         ensure_page_space(10)
         pdf.set_font("Arial", "B", 12)
-        pdf.cell(0, 8, title, ln=1, align="L")
+        pdf.cell(0, 8, title, ln=1, align="C")
         pdf.ln(1)
 
     def table_title(x, title):
@@ -69,19 +64,17 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     def ensure_space_in_group(heights, block_h, group_heading=None):
         col = choose_col(heights)
         if heights[col] + block_h > bottom:
-            # try other column
             col2 = 1 - col
             if heights[col2] + block_h <= bottom:
                 col = col2
             else:
-                # new page; reprint main title and (optionally) group heading
                 pdf.add_page()
                 pdf.set_font("Arial", "B", 14)
                 pdf.cell(0, 10, "Pre-Pack Room (cont.)", ln=1, align="C")
                 pdf.ln(2)
                 if group_heading:
                     pdf.set_font("Arial", "B", 12)
-                    pdf.cell(0, 8, group_heading, ln=1, align="L")
+                    pdf.cell(0, 8, group_heading, ln=1, align="C")
                     pdf.ln(1)
                 heights = group_init_heights()
                 col = 0
@@ -91,21 +84,20 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         pdf.set_y(max(heights) + pad)
 
     # -------------------
-    # 1) Sauces/Mixes to Prepare
+    # Sauces/Mixes to Prepare
     # -------------------
-    draw_group_heading("1) Sauces/Mixes to Prepare")
+    draw_group_heading("Sauces/Mixes to Prepare")
     heights = group_init_heights()
 
-    # Lamb Sauce (from sauces_section)
+    # Lamb Sauce
     lamb = {
         "title": "Lamb Sauce",
         "meal_key": "LAMB SOUVLAKI",
         "ingredients": [("Greek Yogurt", 20), ("Garlic", 1), ("Salt", 0.2)],
     }
 
-    # rows: title + header + ingredient rows
     block_h = (2 + len(lamb["ingredients"])) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "1) Sauces/Mixes to Prepare")
+    heights, col = ensure_space_in_group(heights, block_h, "Sauces/Mixes to Prepare")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -117,18 +109,18 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         req = (am * tm)
         pdf.set_x(x)
         pdf.cell(col_w * 0.3, ch, str(ing)[:20], 1)
-        pdf.cell(col_w * 0.2, ch, fmt_qty(am), 1)     # per-unit exact
+        pdf.cell(col_w * 0.2, ch, fmt_qty(am), 1)          # exact
         pdf.cell(col_w * 0.2, ch, str(int(tm)), 1)
-        pdf.cell(col_w * 0.3, ch, fmt_int_up(req), 1)  # totals rounded up
+        pdf.cell(col_w * 0.3, ch, fmt_int_up(req), 1)       # totals rounded up
         pdf.ln(ch)
 
     heights[col] = pdf.get_y() + pad
     end_group(heights)
 
     # -------------------
-    # 2) Sauces/Mixes to Get Ready
+    # Sauces/Mixes to Get Ready
     # -------------------
-    draw_group_heading("2) Sauces/Mixes to Get Ready")
+    draw_group_heading("Sauces/Mixes to Get Ready")
     heights = group_init_heights()
 
     sauces_to_get_ready = [
@@ -141,7 +133,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "2) Sauces/Mixes to Get Ready")
+    heights, col = ensure_space_in_group(heights, block_h, "Sauces/Mixes to Get Ready")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -153,26 +145,54 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         total = qty * amt
         pdf.set_x(x)
         pdf.cell(col_w * 0.4, ch, sauce, 1)
-        pdf.cell(col_w * 0.2, ch, fmt_qty(qty), 1)      # per-unit exact
+        pdf.cell(col_w * 0.2, ch, fmt_qty(qty), 1)          # exact
         pdf.cell(col_w * 0.2, ch, str(int(amt)), 1)
-        pdf.cell(col_w * 0.2, ch, fmt_int_up(total), 1) # totals rounded
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(total), 1)     # totals rounded up
+        pdf.ln(ch)
+
+    heights[col] = pdf.get_y() + pad
+
+    # NEW: Meat to Get Ready table
+    meat_to_get_ready = [
+        ("SPAGHETTI BOLOGNESE", 230, "SPAGHETTI BOLOGNESE"),
+        ("CHOW MEIN", 230, "BEEF CHOW MEIN"),
+        ("SHEPPERDS PIE", 210, "SHEPHERD'S PIE"),
+        ("BURRITO BOWL", 130, "BEEF BURRITO BOWL"),
+    ]
+
+    block_h = (2 + len(meat_to_get_ready)) * ch + pad
+    heights, col = ensure_space_in_group(heights, block_h, "Sauces/Mixes to Get Ready")
+    x = xpos[col]
+    y = heights[col]
+    pdf.set_xy(x, y)
+    table_title(x, "Meat to Get Ready")
+    table_headers(x, [("Meat Mix", 0.4), ("Qty", 0.2), ("Amount", 0.2), ("Total", 0.2)])
+
+    for meat_mix, qty, meal_key in meat_to_get_ready:
+        amt = meal_totals.get(meal_key.upper(), 0) or 0
+        total = qty * amt
+        pdf.set_x(x)
+        pdf.cell(col_w * 0.4, ch, meat_mix[:20], 1)
+        pdf.cell(col_w * 0.2, ch, fmt_qty(qty), 1)          # exact
+        pdf.cell(col_w * 0.2, ch, str(int(amt)), 1)
+        pdf.cell(col_w * 0.2, ch, fmt_int_up(total), 1)     # totals rounded up
         pdf.ln(ch)
 
     heights[col] = pdf.get_y() + pad
     end_group(heights)
 
     # -------------------
-    # 3) Ingredients to Get Ready
+    # Ingredients to Get Ready
     # -------------------
-    draw_group_heading("3) Ingredients to Get Ready")
+    draw_group_heading("Ingredients to Get Ready")
     heights = group_init_heights()
 
-    # Parma Cheese (from Parma Mix, but removing Napoli and keeping only cheese)
+    # Parma Cheese (cheese only)
     parma_meals = meal_totals.get("NAKED CHICKEN PARMA", 0) or 0
     parma_rows = [("Mozzarella Cheese", 40, parma_meals)]
 
     block_h = (2 + len(parma_rows)) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "3) Ingredients to Get Ready")
+    heights, col = ensure_space_in_group(heights, block_h, "Ingredients to Get Ready")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -190,13 +210,13 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     heights[col] = pdf.get_y() + pad
 
-    # Chicken Pesto Sundried (from fridge_section)
+    # Chicken Pesto Sundried
     pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0) or 0
     sundried_qty = 20
     sundried_total = sundried_qty * pesto_meals
 
     block_h = (2 + 1) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "3) Ingredients to Get Ready")
+    heights, col = ensure_space_in_group(heights, block_h, "Ingredients to Get Ready")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -214,9 +234,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     end_group(heights)
 
     # -------------------
-    # 4) Chicken to Mix
+    # Chicken to Mix
     # -------------------
-    draw_group_heading("4) Chicken to Mix")
+    draw_group_heading("Chicken to Mix")
     heights = group_init_heights()
 
     mixes = [
@@ -229,7 +249,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     for name, ingredients, meal_key, divisor, extra in mixes:
         block_h = (2 + len(ingredients)) * ch + pad
-        heights, col = ensure_space_in_group(heights, block_h, "4) Chicken to Mix")
+        heights, col = ensure_space_in_group(heights, block_h, "Chicken to Mix")
         x = xpos[col]
         y = heights[col]
         pdf.set_xy(x, y)
@@ -246,7 +266,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.22, ch, str(ing)[:20], 1)
-            pdf.cell(col_w * 0.18, ch, fmt_qty(qty), 1)              # per-unit exact
+            pdf.cell(col_w * 0.18, ch, fmt_qty(qty), 1)
             pdf.cell(col_w * 0.18, ch, str(int(amt)), 1)
             pdf.cell(col_w * 0.21, ch, fmt_int_up(total_per_batch), 1)
             pdf.cell(col_w * 0.21, ch, str(int(batches)), 1)
@@ -257,9 +277,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     end_group(heights)
 
     # -------------------
-    # 5) Rice to Mix
+    # Rice to Mix
     # -------------------
-    draw_group_heading("5) Rice to Mix")
+    draw_group_heading("Rice to Mix")
     heights = group_init_heights()
 
     # Beef Burrito (moved from fridge section)
@@ -268,7 +288,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     burrito_ings = [("Salsa", 43), ("Black Beans", 50), ("Corn", 50), ("Rice", 130)]
 
     block_h = (2 + len(burrito_ings)) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "5) Rice to Mix")
+    heights, col = ensure_space_in_group(heights, block_h, "Rice to Mix")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -295,7 +315,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     bc_ings = [("Peas", 40), ("Rice", 130)]
 
     block_h = (2 + len(bc_ings)) * ch + pad
-    heights, col = ensure_space_in_group(heights, block_h, "5) Rice to Mix")
+    heights, col = ensure_space_in_group(heights, block_h, "Rice to Mix")
     x = xpos[col]
     y = heights[col]
     pdf.set_xy(x, y)
@@ -318,9 +338,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     end_group(heights)
 
     # -------------------
-    # 6) Prepack Cooked Ingredient Checks (placeholder)
+    # Prepack Cooked Ingredient Checks (placeholder)
     # -------------------
-    draw_group_heading("6) Prepack Cooked Ingredient Checks")
+    draw_group_heading("Prepack Cooked Ingredient Checks")
     pdf.set_font("Arial", "", 9)
     pdf.cell(0, 6, "TBC", ln=1)
     pdf.ln(1)
