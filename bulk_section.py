@@ -31,7 +31,7 @@ bulk_sections = [
     # Premixed Chicken Thigh: remove Oil + Roast Chicken Mix entirely (160g per meal)
     {"title": "Premixed Chicken Thigh", "batch_ingredient": "Premixed Chicken Thigh", "batch_size": 0,
      "ingredients": {"Premixed Chicken Thigh": 160},
-     "meals": ["Chicken Fajita Bowl", "Naked Chicken Parma"]},
+     "meals": ["Chicken Fajita Bowl", "Roasted Lemon Chicken & Potatoes"]},
 
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
      "ingredients": {"Steak": 116.3, "Oil": 1.9, "Baking Soda": 3.8},
