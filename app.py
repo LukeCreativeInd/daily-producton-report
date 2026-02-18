@@ -9,7 +9,8 @@ import math
 import calendar
 from zoneinfo import ZoneInfo
 
-from utils import fmt_weight  # ✅ NEW
+from utils import fmt_weight  # totals
+from utils import fmt_qty  # per-unit
 
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
@@ -49,6 +50,10 @@ class ProductionPDF(FPDF):
         self._hdr_h = sum(self._hdr_rows)
         self._hdr_gap = 6  # space below header before page content starts
 
+        # Copy label (set by app.py while rendering sections)
+        self.copy_no = 1
+        self.copy_total = 1
+
     # --- latin-1 safety ---
     @staticmethod
     def _latin1(txt) -> str:
@@ -80,7 +85,7 @@ class ProductionPDF(FPDF):
         # Row 2: date and page  (IMPORTANT: use ASCII hyphen, not unicode en dash)
         self.set_xy(x0, y0 + r1)
         self.set_font("Arial", "B", 14)
-        self.cell(w, r2, f"{self.header_date_str} - Page {self.page_no()}", border=0, ln=1, align="C")
+        self.cell(w, r2, f"{self.header_date_str} - Page {self.page_no()}   Copy {self.copy_no}/{self.copy_total}", border=0, ln=1, align="C")
 
         # Horizontal lines between rows
         y = y0 + r1
@@ -215,13 +220,65 @@ def fetch_csv_from_github(path: str) -> pd.DataFrame | None:
         return None
 
 # ---------- Helpers ----------
-def draw_summary_section(pdf, df, brand_names, report_title):
+def draw_summary_section(pdf, df, brand_names, production_date):
     pdf.add_page()
     pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 9, report_title, ln=1, align='C')
-    pdf.ln(3)
+    pdf.cell(0, 9, "Meal Production Summary", ln=1, align='C')
+    pdf.ln(2)
 
-    n_cols = 1 + len(brand_names) + 2
+    # ---- Use By Dates block ----
+    # Dates are inclusive of production date (e.g. 28 days incl today => today + 27)
+    use_by = [
+        ("Family Lasagna", production_date + timedelta(days=27)),
+        ("Family Mac & Cheese", production_date + timedelta(days=20)),
+        ("Beef Lasagna", production_date + timedelta(days=20)),
+        ("Individual Meals", production_date + timedelta(days=13)),
+    ]
+
+    block_x = 10
+    block_w = 210 - 20
+    row_h = 6
+
+    y0 = pdf.get_y()
+    pdf.set_line_width(0.4)
+    # Outer box: 3 rows total
+    pdf.rect(block_x, y0, block_w, row_h * 3)
+
+    # Row 1 merged title
+    pdf.set_xy(block_x, y0)
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(block_w, row_h, "Use By Dates", border=0, ln=1, align="C")
+
+    # Line between row1 and row2
+    pdf.line(block_x, y0 + row_h, block_x + block_w, y0 + row_h)
+
+    # Row 2 + 3: 2 columns
+    col_w = block_w / 2
+    pdf.set_font("Arial", "", 9)
+
+    def cell_text(name, d):
+        return f"{name} - {d.strftime('%d/%m/%Y')}"
+
+    # Row 2
+    pdf.set_xy(block_x, y0 + row_h)
+    pdf.cell(col_w, row_h, cell_text(use_by[0][0], use_by[0][1]), border=0, ln=0)
+    pdf.set_xy(block_x + col_w, y0 + row_h)
+    pdf.cell(col_w, row_h, cell_text(use_by[1][0], use_by[1][1]), border=0, ln=0)
+
+    # Vertical line
+    pdf.line(block_x + col_w, y0 + row_h, block_x + col_w, y0 + row_h * 3)
+
+    # Line between row2 and row3
+    pdf.line(block_x, y0 + row_h * 2, block_x + block_w, y0 + row_h * 2)
+
+    # Row 3
+    pdf.set_xy(block_x, y0 + row_h * 2)
+    pdf.cell(col_w, row_h, cell_text(use_by[2][0], use_by[2][1]), border=0, ln=0)
+    pdf.set_xy(block_x + col_w, y0 + row_h * 2)
+    pdf.cell(col_w, row_h, cell_text(use_by[3][0], use_by[3][1]), border=0, ln=0)
+
+    pdf.ln(row_h * 2 + 3)
+n_cols = 1 + len(brand_names) + 2
     a4_w = 210
     available_w = a4_w - 20
     meal_col_w = 60 if n_cols <= 6 else 50
@@ -389,17 +446,90 @@ with tab1:
             header_date = selected_date.strftime('%d/%m/%Y')
             pdf = ProductionPDF(header_date_str=header_date)
             pdf.set_auto_page_break(False)
-            a4_w,a4_h=210,297; left=10; page_w=a4_w-20; col_w=page_w/2-5; ch,pad,bottom=6,4,a4_h-17; xpos=[left,left+col_w+10]
-            draw_summary_section(pdf, edited_df[["Product name"]+brand_names+["Already Made","Total"]], brand_names,
-                                 f"Meal Production Summary - {selected_date.strftime('%d/%m/%Y')}")
-            pdf.add_page(); y=pdf.get_y()
-            y=draw_bulk_section(pdf,meal_totals,xpos,col_w,ch,pad,bottom,start_y=y,header_date=selected_date.strftime('%d/%m/%Y'))
-            y=draw_recipes_section(pdf,meal_totals,xpos,col_w,ch,pad,bottom,start_y=y,meal_recipes_override=custom_meal_recipes)
-            y=draw_sauces_section(pdf,meal_totals,xpos,col_w,ch,pad,bottom,start_y=y)
-            y=draw_fridge_section(pdf,meal_totals,xpos,col_w,ch,pad,bottom,start_y=y)
-            y=draw_chicken_mixing_section(pdf,meal_totals,xpos,col_w,ch,pad,bottom,start_y=y)
-            y=draw_meat_veg_section(pdf,meal_totals,custom_meal_recipes,bulk_sections,xpos,col_w,ch,pad,bottom,start_y=y)
-            pdf_bytes=pdf.output(dest="S").encode("latin1")
+            a4_w, a4_h = 210, 297
+            left = 10
+            page_w = a4_w - 20
+            col_w = page_w / 2 - 5
+            ch, pad, bottom = 6, 4, a4_h - 17
+            xpos = [left, left + col_w + 10]
+
+            # Copy counts per section
+            copies = {
+                "summary": 2,
+                "bulk": 3,
+                "recipes": 2,
+                "sauces_fridge": 1,
+                "chicken_mixing": 1,
+                "meat_veg": 3,
+            }
+
+            # --- Meal Summary (2 copies) ---
+            for c in range(1, copies["summary"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["summary"]
+                draw_summary_section(
+                    pdf,
+                    edited_df[["Product name"] + brand_names + ["Already Made", "Total"]],
+                    brand_names,
+                    selected_date,
+                )
+
+            # --- Bulk Raw Ingredients to Cook (3 copies) ---
+            for c in range(1, copies["bulk"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["bulk"]
+                pdf.add_page()
+                y = pdf.get_y()
+                y = draw_bulk_section(
+                    pdf,
+                    meal_totals,
+                    xpos,
+                    col_w,
+                    ch,
+                    pad,
+                    bottom,
+                    start_y=y,
+                    header_date=selected_date.strftime("%d/%m/%Y"),
+                )
+
+            # --- Meal Raw Ingredients to Cook (2 copies) ---
+            # Start on a fresh page for cleanliness (each copy starts fresh).
+            for c in range(1, copies["recipes"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["recipes"]
+                pdf.add_page()
+                y = pdf.get_y()
+                y = draw_recipes_section(
+                    pdf,
+                    meal_totals,
+                    xpos,
+                    col_w,
+                    ch,
+                    pad,
+                    bottom,
+                    start_y=y,
+                    meal_recipes_override=custom_meal_recipes,
+                )
+
+            # --- Sauces + To Pack In Fridge (1 copy, shared pages as-is) ---
+            for c in range(1, copies["sauces_fridge"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["sauces_fridge"]
+                y = draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None)
+                y = draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=y)
+
+            # --- Chicken Mixing (1 copy) ---
+            for c in range(1, copies["chicken_mixing"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["chicken_mixing"]
+                y = draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None)
+
+            # --- Pre-Pack Room placeholder page (between Chicken Mixing and Meat/Veg) ---
+            pdf.copy_no, pdf.copy_total = 1, 1
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 14)
+            pdf.cell(0, 10, "Pre-Pack Room", ln=1, align="C")
+
+            # --- Meat Order and Veg Prep (3 copies) ---
+            for c in range(1, copies["meat_veg"] + 1):
+                pdf.copy_no, pdf.copy_total = c, copies["meat_veg"]
+                y = draw_meat_veg_section(pdf, meal_totals, custom_meal_recipes, bulk_sections, xpos, col_w, ch, pad, bottom, start_y=None)
+pdf_bytes=pdf.output(dest="S").encode("latin1")
             pdf_name=f"daily_production_report_{selected_date_str}_{now_str}.pdf"
             csv_name=f"daily_production_report_{selected_date_str}_{now_str}.csv"
             push_pdf_to_github(pdf_bytes,pdf_name,weekly=False)
