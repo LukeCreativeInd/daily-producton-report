@@ -227,80 +227,16 @@ def fetch_csv_from_github(path: str) -> pd.DataFrame | None:
         return None
 
 # ---------- Helpers ----------
-def draw_summary_section(pdf, df, brand_names, production_date_or_title):
-    """
-    Daily mode: 4th arg is a date -> renders Use By Dates + fixed title.
-    Weekly mode (legacy): 4th arg is a str title -> renders that title and NO Use By Dates block.
-    """
+def draw_summary_section(pdf, df, brand_names, production_date):
     pdf.add_page()
     pdf.set_font("Arial", "B", 13)
-
-    # Backward-compatible: weekly calls pass a title string
-    if isinstance(production_date_or_title, str):
-        title = production_date_or_title
-        pdf.cell(0, 9, title, ln=1, align='C')
-        pdf.ln(2)
-    else:
-        production_date = production_date_or_title
-        pdf.cell(0, 9, "Meal Production Summary", ln=1, align='C')
-        pdf.ln(2)
-
-        # ---- Use By Dates block ----
-        # Dates are inclusive of production date (e.g. 28 days incl today => today + 27)
-        use_by = [
-            ("Family Lasagna", production_date + timedelta(days=27)),
-            ("Family Mac & Cheese", production_date + timedelta(days=20)),
-            ("Beef Lasagna", production_date + timedelta(days=20)),
-            ("Individual Meals", production_date + timedelta(days=13)),
-        ]
-
-        block_x = 10
-        block_w = 210 - 20
-        row_h = 6
-
-        y0 = pdf.get_y()
-        pdf.set_line_width(0.4)
-        # Outer box: 3 rows total
-        pdf.rect(block_x, y0, block_w, row_h * 3)
-
-        # Row 1 merged title
-        pdf.set_xy(block_x, y0)
-        pdf.set_font("Arial", "B", 10)
-        pdf.cell(block_w, row_h, "Use By Dates", border=0, ln=1, align="C")
-
-        # Line between row1 and row2
-        pdf.line(block_x, y0 + row_h, block_x + block_w, y0 + row_h)
-
-        # Row 2 + 3: 2 columns
-        col_w = block_w / 2
-        pdf.set_font("Arial", "", 9)
-
-        def cell_text(name, d):
-            return f"{name} - {d.strftime('%d/%m/%Y')}"
-
-        # Row 2
-        pdf.set_xy(block_x, y0 + row_h)
-        pdf.cell(col_w, row_h, cell_text(use_by[0][0], use_by[0][1]), border=0, ln=0)
-        pdf.set_xy(block_x + col_w, y0 + row_h)
-        pdf.cell(col_w, row_h, cell_text(use_by[1][0], use_by[1][1]), border=0, ln=0)
-
-        # Vertical line
-        pdf.line(block_x + col_w, y0 + row_h, block_x + col_w, y0 + row_h * 3)
-
-        # Line between row2 and row3
-        pdf.line(block_x, y0 + row_h * 2, block_x + block_w, y0 + row_h * 2)
-
-        # Row 3
-        pdf.set_xy(block_x, y0 + row_h * 2)
-        pdf.cell(col_w, row_h, cell_text(use_by[2][0], use_by[2][1]), border=0, ln=0)
-        pdf.set_xy(block_x + col_w, y0 + row_h * 2)
-        pdf.cell(col_w, row_h, cell_text(use_by[3][0], use_by[3][1]), border=0, ln=0)
-
-        pdf.ln(row_h * 2 + 3)
+    pdf.cell(0, 9, "Meal Production Summary", ln=1, align='C')
+    pdf.ln(2)
 
     # ---- Table ----
     n_cols = 1 + len(brand_names) + 2
     a4_w = 210
+    a4_h = 297
     available_w = a4_w - 20
     meal_col_w = 60 if n_cols <= 6 else 50
     other_col_w = (available_w - meal_col_w) / (n_cols - 1) if n_cols > 1 else available_w
@@ -329,6 +265,63 @@ def draw_summary_section(pdf, df, brand_names, production_date_or_title):
     pdf.cell(col_widths[len(brand_names)+1], 6, str(df["Already Made"].sum()), 1)
     pdf.cell(col_widths[len(brand_names)+2], 6, str(df["Total"].sum()), 1)
     pdf.ln(6)
+
+    # ---- Use By Dates block (below meal summary table) ----
+    # Dates are inclusive of production date (e.g. 28 days incl today => today + 27)
+    use_by = [
+        ("Family Lasagna", production_date + timedelta(days=27)),
+        ("Family Mac & Cheese", production_date + timedelta(days=20)),
+        ("Beef Lasagna", production_date + timedelta(days=20)),
+        ("Individual Meals", production_date + timedelta(days=13)),
+    ]
+
+    block_x = 10
+    block_w = 210 - 20
+    row_h = 6
+
+    # If we're too close to the bottom of the page, push the Use By box onto a fresh page
+    if pdf.get_y() + (row_h * 3) + 6 > (a4_h - 17):
+        pdf.add_page()
+
+    pdf.ln(3)
+    y0 = pdf.get_y()
+    pdf.set_line_width(0.4)
+    pdf.rect(block_x, y0, block_w, row_h * 3)
+
+    # Row 1 merged title
+    pdf.set_xy(block_x, y0)
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(block_w, row_h, "Use By Dates", border=0, ln=1, align="C")
+
+    # Line between row1 and row2
+    pdf.line(block_x, y0 + row_h, block_x + block_w, y0 + row_h)
+
+    # Row 2 + 3: 2 columns (CENTERED)
+    col_w = block_w / 2
+    pdf.set_font("Arial", "", 9)
+
+    def cell_text(name, d):
+        return f"{name} - {d.strftime('%d/%m/%Y')}"
+
+    # Row 2
+    pdf.set_xy(block_x, y0 + row_h)
+    pdf.cell(col_w, row_h, cell_text(use_by[0][0], use_by[0][1]), border=0, ln=0, align="C")
+    pdf.set_xy(block_x + col_w, y0 + row_h)
+    pdf.cell(col_w, row_h, cell_text(use_by[1][0], use_by[1][1]), border=0, ln=0, align="C")
+
+    # Vertical line
+    pdf.line(block_x + col_w, y0 + row_h, block_x + col_w, y0 + row_h * 3)
+
+    # Line between row2 and row3
+    pdf.line(block_x, y0 + row_h * 2, block_x + block_w, y0 + row_h * 2)
+
+    # Row 3
+    pdf.set_xy(block_x, y0 + row_h * 2)
+    pdf.cell(col_w, row_h, cell_text(use_by[2][0], use_by[2][1]), border=0, ln=0, align="C")
+    pdf.set_xy(block_x + col_w, y0 + row_h * 2)
+    pdf.cell(col_w, row_h, cell_text(use_by[3][0], use_by[3][1]), border=0, ln=0, align="C")
+
+    pdf.ln(row_h * 2 + 3)
     return pdf.get_y()
 
 def parse_daily_filename(name: str):
@@ -785,16 +778,39 @@ with tab3:
                     out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
 
                     title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
-                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
+                    # NOTE: weekly summary uses a different path; this stays unchanged
+                    pdf.add_page()
+                    pdf.set_font("Arial", "B", 13)
+                    pdf.cell(0, 9, title, ln=1, align='C')
+                    pdf.ln(2)
 
-                    buf = pdf.output(dest="S").encode("latin1")
+                    n_cols = 1 + 2
+                    a4_w = 210
+                    available_w = a4_w - 20
+                    meal_col_w = 80
+                    other_col_w = (available_w - meal_col_w) / (n_cols - 1)
+                    col_widths = [meal_col_w, other_col_w]
+
+                    headers = ["Meal", "Total"]
+                    pdf.set_font("Arial", "B", 9)
+                    for h, w in zip(headers, col_widths):
+                        pdf.cell(w, 7, h, 1, 0, 'C')
+                    pdf.ln(7)
+
+                    pdf.set_font("Arial", "", 8)
+                    for _, row in out_df.iterrows():
+                        pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
+                        pdf.cell(col_widths[1], 6, str(int(row["Total"])), 1)
+                        pdf.ln(6)
+
+                    pdf_bytes = pdf.output(dest="S").encode("latin1")
                     now_local = datetime.now(LOCAL_TZ)
                     fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
-                    if push_pdf_to_github(buf, fname, weekly=True):
+                    if push_pdf_to_github(pdf_bytes, fname, weekly=True):
                         st.success("Weekly summary uploaded to GitHub!")
                     else:
                         st.warning("Could not upload weekly summary.")
-                    st.download_button("📄 Download Weekly Summary PDF", buf, file_name=fname, mime="application/pdf")
+                    st.download_button("📄 Download Weekly Summary PDF", pdf_bytes, file_name=fname, mime="application/pdf")
         else:
             st.info("Pick your week above — reports in that range will appear here to select.")
 
@@ -862,15 +878,37 @@ with tab3:
                     out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
 
                     title = f"Weekly Meal Summary - {week_start2.strftime('%d/%m/%Y')} to {week_end2.strftime('%d/%m/%Y')}"
-                    draw_summary_section(pdf, out_df[["Product name","Already Made","Total"]], [], title)
+                    pdf.add_page()
+                    pdf.set_font("Arial", "B", 13)
+                    pdf.cell(0, 9, title, ln=1, align='C')
+                    pdf.ln(2)
 
-                    buf = pdf.output(dest="S").encode("latin1")
+                    n_cols = 1 + 2
+                    a4_w = 210
+                    available_w = a4_w - 20
+                    meal_col_w = 80
+                    other_col_w = (available_w - meal_col_w) / (n_cols - 1)
+                    col_widths = [meal_col_w, other_col_w]
+
+                    headers = ["Meal", "Total"]
+                    pdf.set_font("Arial", "B", 9)
+                    for h, w in zip(headers, col_widths):
+                        pdf.cell(w, 7, h, 1, 0, 'C')
+                    pdf.ln(7)
+
+                    pdf.set_font("Arial", "", 8)
+                    for _, row in out_df.iterrows():
+                        pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
+                        pdf.cell(col_widths[1], 6, str(int(row["Total"])), 1)
+                        pdf.ln(6)
+
+                    pdf_bytes = pdf.output(dest="S").encode("latin1")
                     now_local = datetime.now(LOCAL_TZ)
                     fname = f"weekly_summary_{week_start2.strftime('%Y-%m-%d')}_to_{week_end2.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
-                    if push_pdf_to_github(buf, fname, weekly=True):
+                    if push_pdf_to_github(pdf_bytes, fname, weekly=True):
                         st.success("Weekly summary uploaded to GitHub!")
                     else:
                         st.warning("Could not upload weekly summary.")
-                    st.download_button("📄 Download Weekly Summary PDF", buf, file_name=fname, mime="application/pdf")
+                    st.download_button("📄 Download Weekly Summary PDF", pdf_bytes, file_name=fname, mime="application/pdf")
         else:
             st.info("Add weekly CSV/XLSX files above, or switch to the 'From existing reports' tab.")
