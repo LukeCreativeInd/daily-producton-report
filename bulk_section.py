@@ -53,8 +53,8 @@ bulk_sections = [
     # Custom Sweet Potato Mash logic (different per-meal grams by meal)
     {"title": "Sweet Potato Mash", "custom_type": "sweet_potato_split",
      "meals": {
-         "Shepherd's Pie": 195,
-         "Chicken with Sweet Potato and Beans": 169
+         "Shepherd's Pie": 187.5,
+         "Chicken with Sweet Potato and Beans": 162.5
      },
      # Base seasoning ratios per 200g sweet potato
      "seasoning_per_200": {"Salt": 1, "White Pepper": 0.5}},
