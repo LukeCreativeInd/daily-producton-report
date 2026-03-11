@@ -43,7 +43,7 @@ bulk_sections = [
 
     # Removed Salt from Lamb Marinate
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
-     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Oregano": 0.3, "Baking Soda": 5.27},
+     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Oregano": 1.2, "Baking Soda": 2.6},
      "meals": ["Lamb Souvlaki"]},
 
     {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
