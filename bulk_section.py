@@ -26,9 +26,9 @@ bulk_sections = [
          "Chicken Fajita Bowl"
      ]},
 
-    {"title": "Moroccan Chicken", "batch_ingredient": "Chicken", "batch_size": 0,
-     "ingredients": {"Chicken": 180, "Oil": 2, "Lemon Juice": 6, "Moroccan Chicken Mix": 4},
-     "meals": ["Moroccan Chicken"]},
+    {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
+ "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
+ "meals": ["Lamb Souvlaki"]},
 
     # Supplier provides premixed chicken with oil + seasoning already included.
     # We hide Oil + Roast Chicken Mix rows, but add their weight into Premixed Chicken totals.
