@@ -26,9 +26,9 @@ bulk_sections = [
          "Chicken Fajita Bowl"
      ]},
 
-    {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
- "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
- "meals": ["Lamb Souvlaki"]},
+    {"title": "Moroccan Chicken", "batch_ingredient": "Chicken", "batch_size": 0,
+     "ingredients": {"Chicken": 180, "Oil": 2, "Lemon Juice": 6, "Moroccan Chicken Mix": 4},
+     "meals": ["Moroccan Chicken"]},
 
     # Supplier provides premixed chicken with oil + seasoning already included.
     # We hide Oil + Roast Chicken Mix rows, but add their weight into Premixed Chicken totals.
@@ -41,10 +41,9 @@ bulk_sections = [
      "ingredients": {"Steak": 100, "Oil": 1.9, "Baking Soda": 3.8},
      "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
 
-    # Removed Salt from Lamb Marinate
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
-     "ingredients": {"Lamb Shoulder": 162, "Oil": 2, "Oregano": 1.2, "Baking Soda": 2.6},
-     "meals": ["Lamb Souvlaki"]},
+ "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
+ "meals": ["Lamb Souvlaki"]},
 
     {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
      "ingredients": {"Potato": 150, "Cooking Cream": 20, "Butter": 7, "Salt": 1.5, "White Pepper": 0.5},
