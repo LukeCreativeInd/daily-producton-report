@@ -57,7 +57,7 @@ bulk_sections = [
          "Chicken with Sweet Potato and Beans": 166.4
      },
      # Base seasoning ratios per 200g sweet potato
-     "seasoning_per_200": {"Salt": 1, "White Pepper": 0.5}},
+     "seasoning_per_200": {"Salt": 1, "White Pepper": 0.25}},
 
     # Renamed
     {"title": "Roasted Parma Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 63,
