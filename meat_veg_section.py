@@ -134,7 +134,7 @@ def draw_meat_veg_section(
     # ---------- Meat Order (RIGHT column) ----------
     meat_order = [
         ("CHUCK ROLL (LEBO)", get_total_recipe_ingredient("Lebanese Beef Stew", "Chuck Diced")),
-        ("BEEF TOPSIDE (MONG)", get_total_recipe_ingredient("Mongolian Beef", "Chuck")),
+        ("BEEF TOPSIDE (MONG)", get_total_recipe_ingredient("Mongolian Beef", "Topside Steak")),
         (
             "MINCE",
             sum_totals_recipe_ingredients(
