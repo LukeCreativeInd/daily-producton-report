@@ -150,7 +150,7 @@ meal_recipes = {
     "Creamy Chicken & Mushroom Gnocchi": {
         "batch": 36,
         "ingredients": {
-            "Gnocchi": 150, "Chicken": 80, "Sauce": 200, "Spinach": 25
+            "Gnocchi": 142.5, "Chicken": 80, "Sauce": 200, "Spinach": 25
         }
     }
 }
