@@ -38,7 +38,7 @@ bulk_sections = [
 
     # Updated Steak quantities
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
-     "ingredients": {"Steak": 104, "Oil": 1.6744, "Baking Soda": 0.52},
+     "ingredients": {"Steak": 100, "Oil": 1.6, "Baking Soda": 1},
      "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
 
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
