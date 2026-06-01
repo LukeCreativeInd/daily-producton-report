@@ -47,7 +47,7 @@ meal_recipes = {
     "Mongolian Beef": {
         "batch": 0,
         "ingredients": {
-            "Topside Steak": 108, "Baking Soda": 0.54, "Water": 10.8, "Soy Sauce": 5.4, "Cornflour": 2.7, "Capsicum": 37, "Onion": 37, "Rice": 130
+            "Topside Steak": 100, "Baking Soda": 1, "Water": 10, "Soy Sauce": 5, "Cornflour": 2.5, "Capsicum": 37, "Onion": 37, "Rice": 130
         }
     },
     "Chicken With Vegetables": {
