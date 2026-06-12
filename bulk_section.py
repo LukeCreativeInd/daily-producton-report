@@ -46,14 +46,14 @@ bulk_sections = [
  "meals": ["Lamb Souvlaki"]},
 
     {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
-     "ingredients": {"Potato": 150, "Cooking Cream": 20, "Butter": 7, "Salt": 1.5, "White Pepper": 0.5},
+     "ingredients": {"Potato": 158.40, "Cooking Cream": 21.12, "Butter": 7.39, "Salt": 1.58, "White Pepper": 0.2},
      "meals": ["Beef Meatballs", "Steak with Mushroom Sauce"]},
 
     # Custom Sweet Potato Mash logic (different per-meal grams by meal)
     {"title": "Sweet Potato Mash", "custom_type": "sweet_potato_split",
      "meals": {
-         "Shepherd's Pie": 184.5,
-         "Chicken with Sweet Potato and Beans": 159.9
+         "Shepherd's Pie": 197.94,
+         "Chicken with Sweet Potato and Beans": 171.55
      },
      # Base seasoning ratios per 200g sweet potato
      "seasoning_per_200": {"Salt": 1, "White Pepper": 0.25}},
