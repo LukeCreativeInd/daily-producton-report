@@ -129,7 +129,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     fajita_meals = meal_totals.get("CHICKEN FAJITA BOWL", 0) or 0
     burrito_meals = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
     chunky_salsa_amt = int(fajita_meals + burrito_meals)
-    chunky_salsa_total = (33 * fajita_meals) + (43 * burrito_meals)
+    chunky_salsa_total = (35 * fajita_meals) + (45 * burrito_meals)
 
     sauces_to_get_ready = [
         ("MONGOLIAN", 70, "MONGOLIAN BEEF"),
