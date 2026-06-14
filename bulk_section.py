@@ -12,9 +12,11 @@ bulk_sections = [
      "ingredients": {"Penne": 59, "Oil": 0.7},
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
 
-    # Removed Salt from Rice Order
-    {"title": "Rice Order", "batch_ingredient": "Rice", "batch_size": 180,
-     "ingredients": {"Rice": 53, "Water": 95, "Oil": 1.5},
+    # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
+    {"title": "Rice Order", "custom_type": "rice_trays",
+     "rice_per_meal": 53,
+     "rice_per_tray": 2000,
+     "water_per_tray": 3000,
      "meals": [
          "Beef Chow Mein",
          "Beef Burrito Bowl",
@@ -132,6 +134,46 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
         pdf.set_font("Arial", "", 8)
 
     for sec in bulk_sections:
+        # Custom Rice Tray rendering
+        if sec.get("custom_type") == "rice_trays":
+            # rows: title + headers + 3 lines (Rice, Water, Tray Setup)
+            block_h = (2 + 3) * ch + pad
+            heights, col = ensure_space(heights, block_h, title1)
+            x, y = xpos[col], heights[col]
+            pdf.set_xy(x, y)
+            pdf.set_font("Arial", "B", 11)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.cell(col_w, ch, sec["title"], ln=1, fill=True)
+
+            table_headers(x)
+
+            total_meals = sum(int(meal_totals.get(m.upper(), 0) or 0) for m in sec.get("meals", []))
+
+            rice_per_meal = float(sec.get("rice_per_meal", 0) or 0)
+            rice_per_tray = float(sec.get("rice_per_tray", 2000) or 2000)
+            water_per_tray = float(sec.get("water_per_tray", 3000) or 3000)
+
+            total_rice = rice_per_meal * total_meals
+            trays = math.ceil(total_rice / rice_per_tray) if total_rice > 0 else 0
+            rice_per_actual_tray = total_rice / trays if trays else 0
+            total_water = trays * water_per_tray if trays else 0
+
+            def rice_row(label, qty_per, meals_display, total_display, batch_display=""):
+                pdf.set_x(x)
+                pdf.cell(col_w * 0.4, ch, str(label)[:20], 1)
+                pdf.cell(col_w * 0.15, ch, fmt_qty(qty_per), 1)
+                pdf.cell(col_w * 0.15, ch, str(meals_display), 1)
+                pdf.cell(col_w * 0.15, ch, fmt_int_up(total_display), 1)
+                pdf.cell(col_w * 0.15, ch, str(batch_display), 1)
+                pdf.ln(ch)
+
+            rice_row("Rice", rice_per_meal, total_meals, rice_per_actual_tray, trays)
+            rice_row("Water", water_per_tray, trays, total_water, "")
+            rice_row("Tray Setup", rice_per_tray, trays, total_rice, "")
+
+            heights[col] = pdf.get_y() + pad
+            continue
+
         # Custom Sweet Potato Mash rendering
         if sec.get("custom_type") == "sweet_potato_split":
             # rows: title + headers + 3 lines (Sweet Potato, Salt, White Pepper)
