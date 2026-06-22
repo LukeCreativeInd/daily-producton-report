@@ -61,8 +61,8 @@ bulk_sections = [
      "seasoning_per_200": {"Salt": 1, "White Pepper": 0.2}},
 
     # Renamed
-    {"title": "Roasted Parma Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 63,
-     "ingredients": {"Roasted Potatoes": 190, "Oil": 1.62, "Spices Mix": 2.5},
+    {"title": "Roasted Parma Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 50,
+     "ingredients": {"Roasted Potatoes": 190, "Oil": 1.9, "Spices Mix": 1.9},
      "meals": ["Naked Chicken Parma", "Lamb Souvlaki"]},
 
     {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
