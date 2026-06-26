@@ -41,7 +41,7 @@ meal_recipes = {
         "batch": 80,
         "ingredients": {
             "Chuck Diced": 97, "Onion": 30, "Carrot": 30, "Potato": 30, "Peas": 30,
-            "Oil": 2, "Salt": 2.5, "Pepper": 0.5, "Tomato Paste": 20, "Water": 30, "Beef Stock": 30, "Rice": 130
+            "Oil": 2, "Salt": 2.5, "Pepper": 0.5, "Tomato Paste": 20, "Water": 30, "Beef Stock Powder": 0.44, "Beef Stock Powder Water": 29.56, "Rice": 130
         }
     },
     "Mongolian Beef": {
