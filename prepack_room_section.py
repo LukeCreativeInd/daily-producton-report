@@ -126,20 +126,21 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # NOTE:
     # Fajita Sauce + Burrito Sauce are the same sauce (Chunky Salsa).
     # We hide them from print, but we still calculate their totals.
-    fajita_meals = meal_totals.get("Chicken Fajita Bowl", 0) or 0
+    fajita_meals = meal_totals.get("CHICKEN FAJITA BOWL", 0) or 0
     burrito_meals = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
     chunky_salsa_amt = int(fajita_meals + burrito_meals)
     chunky_salsa_total = (35 * fajita_meals) + (45 * burrito_meals)
 
     sauces_to_get_ready = [
         ("Mongolian", 70, "MONGOLIAN BEEF"),
-        ("MEATBALLS", 120, "BEEF MEATBALLS"),
-        ("LEMON", 50, "ROASTED LEMON CHICKEN & POTATOES"),
-        ("MUSHROOM", 100, "STEAK WITH MUSHROOM SAUCE"),
-        # removed from print: ("FAJITA SAUCE", 33, "Chicken Fajita Bowl"),
-        # removed from print: ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
+        ("Meatballs", 120, "BEEF MEATBALLS"),
+        ("Lemon", 50, "ROASTED LEMON CHICKEN & POTATOES"),
+        ("Mushroom", 100, "STEAK WITH MUSHROOM SAUCE"),
+        ("Napoli Sauce", 40, "NAKED CHICKEN PARMA"),
+        # removed from print: ("Fajita Sauce", 33, "Chicken Fajita Bowl"),
+        # removed from print: ("Burrito Sauce", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
-        ("CHUNKY SALSA", None, None),
+        ("Chunky Salsa", None, None),
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
@@ -151,10 +152,10 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     table_headers(x, [("Sauce", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)])
 
     for sauce, qty, meal_key in sauces_to_get_ready:
-        if sauce == "CHUNKY SALSA":
+        if sauce == "Chunky Salsa":
             # Qty blank, Amt = combined meals, Total = (33*fajita) + (43*burrito)
             pdf.set_x(x)
-            pdf.cell(col_w * 0.4, ch, "CHUNKY SALSA", 1)
+            pdf.cell(col_w * 0.4, ch, "Chunky Salsa", 1)
             pdf.cell(col_w * 0.2, ch, "", 1)  # qty blank
             pdf.cell(col_w * 0.2, ch, str(int(chunky_salsa_amt)), 1)
             pdf.cell(col_w * 0.2, ch, fmt_int_up(chunky_salsa_total), 1)
@@ -174,10 +175,10 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     # NEW: Meat to Get Ready table
     meat_to_get_ready = [
-        ("SPAGHETTI BOLOGNESE", 230, "SPAGHETTI BOLOGNESE"),
-        ("CHOW MEIN", 230, "BEEF CHOW MEIN"),
-        ("SHEPPERDS PIE", 210, "SHEPHERD'S PIE"),
-        ("BURRITO BOWL", 130, "BEEF BURRITO BOWL"),
+        ("Spaghetti Bolognese", 230, "SPAGHETTI BOLOGNESE"),
+        ("Chow Mein", 230, "BEEF CHOW MEIN"),
+        ("Shepherd's Pie", 210, "SHEPHERD'S PIE"),
+        ("Burrito Bowl", 130, "BEEF BURRITO BOWL"),
     ]
 
     block_h = (2 + len(meat_to_get_ready)) * ch + pad
@@ -208,7 +209,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights = group_init_heights()
 
     # Parma Cheese (cheese only)
-    parma_meals = meal_totals.get("Naked Chicken Parma", 0) or 0
+    parma_meals = meal_totals.get("NAKED CHICKEN PARMA", 0) or 0
     parma_rows = [("Mozzarella Cheese", 40, parma_meals)]
 
     block_h = (2 + len(parma_rows)) * ch + pad
@@ -231,7 +232,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights[col] = pdf.get_y() + pad
 
     # Chicken Pesto Sundried
-    pesto_meals = meal_totals.get("Chicken Pesto Pasta", 0) or 0
+    pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0) or 0
     sundried_qty = 20
     sundried_total = sundried_qty * pesto_meals
 
@@ -328,7 +329,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     heights[col] = pdf.get_y() + pad
 
-    bc_meals = meal_totals.get("Butter Chicken", 0) or 0
+    bc_meals = meal_totals.get("BUTTER CHICKEN", 0) or 0
     bc_batches = math.ceil(bc_meals / 70) if bc_meals else 1
     bc_ings = [("Peas", 40), ("Rice", 130)]
 
