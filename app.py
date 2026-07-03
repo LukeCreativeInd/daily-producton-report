@@ -419,7 +419,10 @@ with tab1:
 
     # --- Editable merged summary ---
     if dataframes:
-        all_products = sorted(set(p for df in dataframes for p in df["Product name"]))
+        # Only include the 26 production meal options in the summary table.
+        # This prevents POS materials, packs, memberships, or other non-meal products
+        # from appearing in the production report.
+        all_products = SUMMARY_MEAL_ORDER
         rows = []
         for p in all_products:
             row = {"Product name": p, "Already Made": 0}
@@ -442,7 +445,9 @@ with tab1:
         else:
             edited_df["Total"]=0
 
-        edited_df["meal_order"] = edited_df["Product name"].apply(lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999)
+        # Keep only the 26 production meals, then sort them in production order.
+        edited_df = edited_df[edited_df["Product name"].isin(SUMMARY_MEAL_ORDER)].copy()
+        edited_df["meal_order"] = edited_df["Product name"].apply(lambda x: SUMMARY_MEAL_ORDER.index(x))
         edited_df = edited_df.sort_values("meal_order").drop(columns=["meal_order"])
         st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
 
@@ -744,8 +749,9 @@ with tab3:
                     weekly_df["Total"] = 0
 
                 weekly_df["Adjustments"] = 0
+                weekly_df = weekly_df[weekly_df["Product name"].isin(SUMMARY_MEAL_ORDER)].copy()
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
-                    lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
+                    lambda x: SUMMARY_MEAL_ORDER.index(x)
                 )
                 weekly_df = weekly_df.sort_values("meal_order").drop(columns=["meal_order"])
 
@@ -843,8 +849,9 @@ with tab3:
                 weekly_df = merged.groupby("Product name", as_index=False)["Quantity"].sum().rename(columns={"Quantity":"Total"})
                 weekly_df["Already Made"] = 0
                 weekly_df["Adjustments"] = 0
+                weekly_df = weekly_df[weekly_df["Product name"].isin(SUMMARY_MEAL_ORDER)].copy()
                 weekly_df["meal_order"] = weekly_df["Product name"].apply(
-                    lambda x: SUMMARY_MEAL_ORDER.index(x) if x in SUMMARY_MEAL_ORDER else 9999
+                    lambda x: SUMMARY_MEAL_ORDER.index(x)
                 )
                 weekly_df = weekly_df.sort_values("meal_order").drop(columns=["meal_order"])
 
