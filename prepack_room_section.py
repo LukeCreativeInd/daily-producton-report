@@ -356,11 +356,167 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     end_group(heights)
 
     # -------------------
-    # Prepack Cooked Ingredient Checks (placeholder)
+    # Prepack Cooked Ingredient Checks
     # -------------------
     draw_group_heading("Prepack Cooked Ingredient Checks")
-    pdf.set_font("Arial", "", 9)
-    pdf.cell(0, 6, "TBC", ln=1)
-    pdf.ln(1)
+    heights = group_init_heights()
+
+    def get_meals(*meal_keys):
+        """Return the first matching meal total from the supplied possible meal keys."""
+        for meal_key in meal_keys:
+            total = meal_totals.get(meal_key.upper(), None)
+            if total is not None:
+                return total or 0
+        return 0
+
+    def draw_cooked_check_table(title, rows, include_total=False):
+        block_rows = len(rows) + (1 if include_total else 0)
+        block_h = (2 + block_rows) * ch + pad
+
+        nonlocal heights
+        heights, col = ensure_space_in_group(heights, block_h, "Prepack Cooked Ingredient Checks")
+        x = xpos[col]
+        y = heights[col]
+        pdf.set_xy(x, y)
+
+        table_title(x, title)
+        table_headers(x, [("Description", 0.44), ("Meals", 0.18), ("Qty (g)", 0.18), ("Total (g)", 0.20)])
+
+        table_total = 0
+        for desc, meals, qty in rows:
+            total = (meals or 0) * (qty or 0)
+            table_total += total
+
+            pdf.set_x(x)
+            pdf.cell(col_w * 0.44, ch, str(desc)[:26], 1)
+            pdf.cell(col_w * 0.18, ch, str(int(meals or 0)), 1)
+            pdf.cell(col_w * 0.18, ch, fmt_qty(qty or 0), 1)
+            pdf.cell(col_w * 0.20, ch, fmt_int_up(total), 1)
+            pdf.ln(ch)
+
+        if include_total:
+            pdf.set_x(x)
+            pdf.cell(col_w * 0.44, ch, "", 1)
+            pdf.cell(col_w * 0.18, ch, "", 1)
+            pdf.set_font("Arial", "B", 8)
+            pdf.cell(col_w * 0.18, ch, "TOTAL", 1)
+            pdf.cell(col_w * 0.20, ch, fmt_int_up(table_total), 1)
+            pdf.set_font("Arial", "", 8)
+            pdf.ln(ch)
+
+        heights[col] = pdf.get_y() + pad
+
+    # Potatoes Cooked
+    parma_meals = get_meals("NAKED CHICKEN PARMA")
+    lamb_souvlaki_meals = get_meals("LAMB SOUVLAKI")
+    lemon_meals = get_meals("ROASTED LEMON CHICKEN & POTATOES", "ROASTED LEMON CHICKEN AND POTATOES")
+
+    draw_cooked_check_table(
+        "Potatoes Cooked",
+        [
+            ("NAKED CHICKEN PARMA", parma_meals, 150),
+            ("LAMB SOUVLAKI", lamb_souvlaki_meals, 140),
+            ("ROASTED LEMON CHICKEN", lemon_meals, 160),
+        ],
+        include_total=True,
+    )
+
+    # Italian Chicken
+    draw_cooked_check_table(
+        "Italian Chicken",
+        [
+            ("NAKED CHICKEN PARMA", parma_meals, 120),
+            ("CHICKEN WITH VEGETABLES", get_meals("CHICKEN WITH VEGETABLES"), 120),
+            ("CHICKEN SWEET POTATO", get_meals("CHICKEN WITH SWEET POTATO AND BEANS"), 120),
+        ],
+        include_total=True,
+    )
+
+    # Normal Chicken
+    draw_cooked_check_table(
+        "Normal Chicken",
+        [
+            ("BUTTER CHICKEN", get_meals("BUTTER CHICKEN"), 123),
+            ("CHICKEN BROCCOLI PASTA", get_meals("CHICKEN AND BROCCOLI PASTA"), 102),
+            ("CHICKEN MUSHROOM GNOCCHI", get_meals("CREAMY CHICKEN & MUSHROOM GNOCCHI", "CREAMY CHICKEN AND MUSHROOM GNOCCHI"), 80),
+            ("CHICKEN PESTO PASTA", get_meals("CHICKEN PESTO PASTA"), 107),
+            ("THAI GREEN CURRY", get_meals("THAI GREEN CHICKEN CURRY", "THAI GREEN CURRY CHICKEN"), 115.36),
+        ],
+        include_total=True,
+    )
+
+    # Chicken Thigh
+    draw_cooked_check_table(
+        "Chicken Thigh",
+        [
+            ("CHICKEN FAJITA BOWL", get_meals("CHICKEN FAJITA BOWL"), 120),
+            ("ROASTED LEMON CHICKEN", lemon_meals, 130),
+        ],
+        include_total=True,
+    )
+
+    # Meat
+    lamb_meals = get_meals("LAMB SOUVLAKI")
+    lamb_total = lamb_meals * 114
+
+    draw_cooked_check_table(
+        "Meat",
+        [
+            ("LAMB", lamb_meals, 114),
+            ("MONGOLIAN", get_meals("MONGOLIAN BEEF"), 100),
+            ("STEAK", get_meals("STEAK WITH MUSHROOM SAUCE"), 80),
+        ],
+        include_total=False,
+    )
+
+    # Pre Cooked
+    moroccan_meals = get_meals("MOROCCAN CHICKEN", "MORROCAN CHICKEN", "MOROCCAN", "MORROCAN")
+
+    draw_cooked_check_table(
+        "Pre Cooked",
+        [
+            ("MOROCCAN", moroccan_meals, 180),
+            ("MOROCCAN CHICKEN", moroccan_meals, 140),
+        ],
+        include_total=False,
+    )
+
+    # Lamb Recipe Cooked
+    # Feeds from the Lamb row in the Meat table above. Salt = 0.5% of lamb,
+    # oregano = 0.75% of lamb, with batches kept around 10kg each.
+    salt_total = lamb_total * 0.005
+    oregano_total = lamb_total * 0.0075
+    lamb_recipe_total = lamb_total + salt_total + oregano_total
+    lamb_recipe_batches = math.ceil(lamb_recipe_total / 10000) if lamb_recipe_total else 1
+
+    lamb_recipe_rows = [
+        ("LAMB", lamb_total),
+        ("SALT", salt_total),
+        ("OREGANO", oregano_total),
+    ]
+
+    block_h = (2 + len(lamb_recipe_rows)) * ch + pad
+    heights, col = ensure_space_in_group(heights, block_h, "Prepack Cooked Ingredient Checks")
+    x = xpos[col]
+    y = heights[col]
+    pdf.set_xy(x, y)
+
+    table_title(x, "Lamb Recipe Cooked")
+    table_headers(x, [("Description", 0.28), ("Qty (g)", 0.20), ("%", 0.15), ("Total (g)", 0.20), ("Times", 0.17)])
+
+    for idx, (desc, qty_total) in enumerate(lamb_recipe_rows):
+        pct = (qty_total / lamb_recipe_total) if lamb_recipe_total else 0
+        qty_per_batch = math.ceil(qty_total / lamb_recipe_batches) if lamb_recipe_batches else qty_total
+
+        pdf.set_x(x)
+        pdf.cell(col_w * 0.28, ch, desc[:20], 1)
+        pdf.cell(col_w * 0.20, ch, fmt_int_up(qty_total), 1)
+        pdf.cell(col_w * 0.15, ch, f"{pct:.2%}", 1)
+        pdf.cell(col_w * 0.20, ch, fmt_int_up(qty_per_batch), 1)
+        pdf.cell(col_w * 0.17, ch, str(int(lamb_recipe_batches)) if idx == 0 else "", 1)
+        pdf.ln(ch)
+
+    heights[col] = pdf.get_y() + pad
+    end_group(heights)
 
     return pdf.get_y()
