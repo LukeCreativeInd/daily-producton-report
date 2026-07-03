@@ -12,7 +12,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     - Ingredients to Get Ready
     - Chicken to Mix
     - Rice to Mix
-    - Prepack Cooked Ingredient Checks (placeholder for now)
+    - Prepack Cooked Ingredient Checks
     """
 
     # Start on a new page for cleanliness
