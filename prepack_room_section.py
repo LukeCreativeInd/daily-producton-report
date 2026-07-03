@@ -12,7 +12,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     - Ingredients to Get Ready
     - Chicken to Mix
     - Rice to Mix
-    - Prepack Cooked Ingredient Checks
+    - Prepack Cooked Ingredient Checks (placeholder for now)
     """
 
     # Start on a new page for cleanliness
@@ -92,7 +92,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # Lamb Sauce
     lamb = {
         "title": "Lamb Sauce",
-        "meal_key": "LAMB SOUVLAKI",
+        "meal_key": "Lamb Souvlaki",
         "ingredients": [("Greek Yogurt", 20), ("Garlic", 1), ("Salt", 0.2)],
     }
 
@@ -126,17 +126,17 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # NOTE:
     # Fajita Sauce + Burrito Sauce are the same sauce (Chunky Salsa).
     # We hide them from print, but we still calculate their totals.
-    fajita_meals = meal_totals.get("CHICKEN FAJITA BOWL", 0) or 0
+    fajita_meals = meal_totals.get("Chicken Fajita Bowl", 0) or 0
     burrito_meals = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
     chunky_salsa_amt = int(fajita_meals + burrito_meals)
     chunky_salsa_total = (35 * fajita_meals) + (45 * burrito_meals)
 
     sauces_to_get_ready = [
-        ("MONGOLIAN", 70, "MONGOLIAN BEEF"),
+        ("Mongolian", 70, "MONGOLIAN BEEF"),
         ("MEATBALLS", 120, "BEEF MEATBALLS"),
         ("LEMON", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("MUSHROOM", 100, "STEAK WITH MUSHROOM SAUCE"),
-        # removed from print: ("FAJITA SAUCE", 33, "CHICKEN FAJITA BOWL"),
+        # removed from print: ("FAJITA SAUCE", 33, "Chicken Fajita Bowl"),
         # removed from print: ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
         ("CHUNKY SALSA", None, None),
@@ -208,7 +208,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights = group_init_heights()
 
     # Parma Cheese (cheese only)
-    parma_meals = meal_totals.get("NAKED CHICKEN PARMA", 0) or 0
+    parma_meals = meal_totals.get("Naked Chicken Parma", 0) or 0
     parma_rows = [("Mozzarella Cheese", 40, parma_meals)]
 
     block_h = (2 + len(parma_rows)) * ch + pad
@@ -231,7 +231,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights[col] = pdf.get_y() + pad
 
     # Chicken Pesto Sundried
-    pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0) or 0
+    pesto_meals = meal_totals.get("Chicken Pesto Pasta", 0) or 0
     sundried_qty = 20
     sundried_total = sundried_qty * pesto_meals
 
@@ -260,8 +260,8 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights = group_init_heights()
 
     mixes = [
-        ("Pesto", [("Chicken", 107), ("Sauce", 80)], "CHICKEN PESTO PASTA", 50, 1),
-        ("Butter Chicken", [("Chicken", 123), ("Sauce", 90)], "BUTTER CHICKEN", 50, 2),
+        ("Pesto", [("Chicken", 107), ("Sauce", 80)], "Chicken Pesto Pasta", 50, 1),
+        ("Butter Chicken", [("Chicken", 123), ("Sauce", 90)], "Butter Chicken", 50, 2),
         ("Broccoli Pasta", [("Chicken", 102), ("Sauce", 100)], "CHICKEN AND BROCCOLI PASTA", 50, 1),
         ("Thai", [("Chicken", 115.36), ("Sauce", 92.7)], "THAI GREEN CHICKEN CURRY", 50, 1),
         ("Gnocchi", [("Gnocchi", 147), ("Chicken", 80), ("Sauce", 200), ("Spinach", 25)], "CREAMY CHICKEN & MUSHROOM GNOCCHI", 36, 1),
@@ -328,7 +328,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     heights[col] = pdf.get_y() + pad
 
-    bc_meals = meal_totals.get("BUTTER CHICKEN", 0) or 0
+    bc_meals = meal_totals.get("Butter Chicken", 0) or 0
     bc_batches = math.ceil(bc_meals / 70) if bc_meals else 1
     bc_ings = [("Peas", 40), ("Rice", 130)]
 
@@ -407,16 +407,16 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         heights[col] = pdf.get_y() + pad
 
     # Potatoes Cooked
-    parma_meals = get_meals("NAKED CHICKEN PARMA")
-    lamb_souvlaki_meals = get_meals("LAMB SOUVLAKI")
+    parma_meals = get_meals("Naked Chicken Parma")
+    lamb_souvlaki_meals = get_meals("Lamb Souvlaki")
     lemon_meals = get_meals("ROASTED LEMON CHICKEN & POTATOES", "ROASTED LEMON CHICKEN AND POTATOES")
 
     draw_cooked_check_table(
         "Potatoes Cooked",
         [
-            ("NAKED CHICKEN PARMA", parma_meals, 150),
-            ("LAMB SOUVLAKI", lamb_souvlaki_meals, 140),
-            ("ROASTED LEMON CHICKEN", lemon_meals, 160),
+            ("Naked Chicken Parma", parma_meals, 150),
+            ("Lamb Souvlaki", lamb_souvlaki_meals, 140),
+            ("Roasted Lemon Chicken", lemon_meals, 160),
         ],
         include_total=True,
     )
@@ -425,9 +425,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Italian Chicken",
         [
-            ("NAKED CHICKEN PARMA", parma_meals, 120),
-            ("CHICKEN WITH VEGETABLES", get_meals("CHICKEN WITH VEGETABLES"), 120),
-            ("CHICKEN SWEET POTATO", get_meals("CHICKEN WITH SWEET POTATO AND BEANS"), 120),
+            ("Naked Chicken Parma", parma_meals, 120),
+            ("Chicken With Vegetables", get_meals("Chicken With Vegetables"), 120),
+            ("Chicken Sweet Potato", get_meals("CHICKEN WITH SWEET POTATO AND BEANS"), 120),
         ],
         include_total=True,
     )
@@ -436,11 +436,11 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Normal Chicken",
         [
-            ("BUTTER CHICKEN", get_meals("BUTTER CHICKEN"), 123),
-            ("CHICKEN BROCCOLI PASTA", get_meals("CHICKEN AND BROCCOLI PASTA"), 102),
-            ("CHICKEN MUSHROOM GNOCCHI", get_meals("CREAMY CHICKEN & MUSHROOM GNOCCHI", "CREAMY CHICKEN AND MUSHROOM GNOCCHI"), 80),
-            ("CHICKEN PESTO PASTA", get_meals("CHICKEN PESTO PASTA"), 107),
-            ("THAI GREEN CURRY", get_meals("THAI GREEN CHICKEN CURRY", "THAI GREEN CURRY CHICKEN"), 115.36),
+            ("Butter Chicken", get_meals("Butter Chicken"), 123),
+            ("Chicken Broccoli Pasta", get_meals("CHICKEN AND BROCCOLI PASTA"), 102),
+            ("Chicken Mushroom Gnocchi", get_meals("CREAMY CHICKEN & MUSHROOM GNOCCHI", "CREAMY CHICKEN AND MUSHROOM GNOCCHI"), 80),
+            ("Chicken Pesto Pasta", get_meals("Chicken Pesto Pasta"), 107),
+            ("Thai Green Curry", get_meals("THAI GREEN CHICKEN CURRY", "THAI GREEN CURRY CHICKEN"), 115.36),
         ],
         include_total=True,
     )
@@ -449,34 +449,34 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Chicken Thigh",
         [
-            ("CHICKEN FAJITA BOWL", get_meals("CHICKEN FAJITA BOWL"), 120),
-            ("ROASTED LEMON CHICKEN", lemon_meals, 130),
+            ("Chicken Fajita Bowl", get_meals("Chicken Fajita Bowl"), 120),
+            ("Roasted Lemon Chicken", lemon_meals, 130),
         ],
         include_total=True,
     )
 
     # Meat
-    lamb_meals = get_meals("LAMB SOUVLAKI")
+    lamb_meals = get_meals("Lamb Souvlaki")
     lamb_total = lamb_meals * 114
 
     draw_cooked_check_table(
         "Meat",
         [
-            ("LAMB", lamb_meals, 114),
-            ("MONGOLIAN", get_meals("MONGOLIAN BEEF"), 100),
-            ("STEAK", get_meals("STEAK WITH MUSHROOM SAUCE"), 80),
+            ("Lamb", lamb_meals, 114),
+            ("Mongolian", get_meals("MONGOLIAN BEEF"), 100),
+            ("Steak", get_meals("STEAK WITH MUSHROOM SAUCE"), 80),
         ],
         include_total=False,
     )
 
     # Pre Cooked
-    moroccan_meals = get_meals("MOROCCAN CHICKEN", "MORROCAN CHICKEN", "MOROCCAN", "MORROCAN")
+    moroccan_meals = get_meals("Moroccan Chicken", "MORROCAN CHICKEN", "Moroccan", "MORROCAN")
 
     draw_cooked_check_table(
         "Pre Cooked",
         [
-            ("MOROCCAN", moroccan_meals, 180),
-            ("MOROCCAN CHICKEN", moroccan_meals, 140),
+            ("Moroccan", moroccan_meals, 180),
+            ("Moroccan Chicken", moroccan_meals, 140),
         ],
         include_total=False,
     )
@@ -490,9 +490,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     lamb_recipe_batches = math.ceil(lamb_recipe_total / 10000) if lamb_recipe_total else 1
 
     lamb_recipe_rows = [
-        ("LAMB", lamb_total),
-        ("SALT", salt_total),
-        ("OREGANO", oregano_total),
+        ("Lamb", lamb_total),
+        ("Salt", salt_total),
+        ("Oregano", oregano_total),
     ]
 
     block_h = (2 + len(lamb_recipe_rows)) * ch + pad
