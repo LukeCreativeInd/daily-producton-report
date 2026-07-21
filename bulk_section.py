@@ -9,7 +9,7 @@ bulk_sections = [
      "meals": ["Spaghetti Bolognese"]},
 
     {"title": "Penne Order", "batch_ingredient": "Penne", "batch_size": 135,
-     "ingredients": {"Penne": 59, "Oil": 0.7},
+     "ingredients": {"Penne": 65.26, "Oil": 0.79},
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
