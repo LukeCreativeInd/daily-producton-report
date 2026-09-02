@@ -458,12 +458,12 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     # Meat
     lamb_meals = get_meals("Lamb Souvlaki")
-    lamb_total = lamb_meals * 110
+    lamb_total = lamb_meals * 111
 
     draw_cooked_check_table(
         "Meat",
         [
-            ("Lamb", lamb_meals, 110),
+            ("Lamb", lamb_meals, 111),
             ("Mongolian", get_meals("MONGOLIAN BEEF"), 100),
             ("Steak", get_meals("STEAK WITH MUSHROOM SAUCE"), 80),
         ],
