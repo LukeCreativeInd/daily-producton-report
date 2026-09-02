@@ -4,12 +4,14 @@ from utils import fmt_int_up, fmt_qty
 
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
 bulk_sections = [
-    {"title": "Spaghetti Order", "batch_ingredient": "Spaghetti", "batch_size": 85,
-     "ingredients": {"Spaghetti": 64, "Oil": 0.7},
+    {"title": "Spaghetti Order", "custom_type": "pasta_trays",
+     "pasta_name": "Spaghetti", "pasta_per_meal": 64, "oil_per_meal": 0.7,
+     "pasta_per_tray": 2000, "water_per_tray": 4500,
      "meals": ["Spaghetti Bolognese"]},
 
-    {"title": "Penne Order", "batch_ingredient": "Penne", "batch_size": 135,
-     "ingredients": {"Penne": 65.26, "Oil": 0.79},
+    {"title": "Penne Order", "custom_type": "pasta_trays",
+     "pasta_name": "Penne", "pasta_per_meal": 65.26, "oil_per_meal": 0.79,
+     "pasta_per_tray": 2000, "water_per_tray": 5000,
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
@@ -134,6 +136,51 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
         pdf.set_font("Arial", "", 8)
 
     for sec in bulk_sections:
+        # Penne and spaghetti are cooked in oven trays using their own water ratios.
+        if sec.get("custom_type") == "pasta_trays":
+            # rows: title + headers + 4 lines (Pasta, Oil, Water, Raw Pasta)
+            block_h = (2 + 4) * ch + pad
+            heights, col = ensure_space(heights, block_h, title1)
+            x, y = xpos[col], heights[col]
+            pdf.set_xy(x, y)
+            pdf.set_font("Arial", "B", 11)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.cell(col_w, ch, sec["title"], ln=1, fill=True)
+
+            table_headers(x)
+
+            total_meals = sum(int(meal_totals.get(m.upper(), 0) or 0) for m in sec.get("meals", []))
+
+            pasta_name = sec["pasta_name"]
+            pasta_per_meal = float(sec.get("pasta_per_meal", 0) or 0)
+            oil_per_meal = float(sec.get("oil_per_meal", 0) or 0)
+            pasta_per_tray = float(sec.get("pasta_per_tray", 2000) or 2000)
+            water_per_tray = float(sec.get("water_per_tray", 0) or 0)
+
+            total_pasta = pasta_per_meal * total_meals
+            total_oil = oil_per_meal * total_meals
+            trays = math.ceil(total_pasta / pasta_per_tray) if total_pasta > 0 else 0
+            pasta_per_actual_tray = total_pasta / trays if trays else 0
+            oil_per_actual_tray = total_oil / trays if trays else 0
+            total_water = trays * water_per_tray if trays else 0
+
+            def pasta_row(label, qty_per, meals_display, total_display, batch_display=""):
+                pdf.set_x(x)
+                pdf.cell(col_w * 0.4, ch, str(label)[:20], 1)
+                pdf.cell(col_w * 0.15, ch, fmt_qty(qty_per), 1)
+                pdf.cell(col_w * 0.15, ch, str(meals_display), 1)
+                pdf.cell(col_w * 0.15, ch, fmt_int_up(total_display), 1)
+                pdf.cell(col_w * 0.15, ch, str(batch_display), 1)
+                pdf.ln(ch)
+
+            pasta_row(pasta_name, pasta_per_meal, total_meals, pasta_per_actual_tray, trays)
+            pasta_row("Oil", oil_per_meal, total_meals, oil_per_actual_tray, "")
+            pasta_row("Water", water_per_tray, trays, total_water, "")
+            pasta_row(f"Raw {pasta_name}", pasta_per_tray, trays, total_pasta, "")
+
+            heights[col] = pdf.get_y() + pad
+            continue
+
         # Custom Rice Tray rendering
         if sec.get("custom_type") == "rice_trays":
             # rows: title + headers + 3 lines (Rice, Water, Tray Setup)
