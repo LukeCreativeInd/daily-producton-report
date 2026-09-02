@@ -14,7 +14,7 @@ bulk_sections = [
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
     {"title": "Rice Order", "custom_type": "rice_trays",
-     "rice_per_meal": 53,
+     "rice_per_meal": 55.39,
      "rice_per_tray": 2000,
      "water_per_tray": 3000,
      "meals": [
