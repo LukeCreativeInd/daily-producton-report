@@ -151,7 +151,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     sauces_to_get_ready = [
         ("Mongolian", 70, "MONGOLIAN BEEF"),
-        ("Meatballs", 120, "BEEF MEATBALLS"),
+        ("Meatballs", 100, "BEEF MEATBALLS"),
         ("Lemon", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("Mushroom", None, None),
         ("Napoli Sauce", 40, "NAKED CHICKEN PARMA"),
@@ -262,6 +262,25 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     heights = component_table(heights, "Ingredients to Get Ready", "Burger Cheese",
                               "High Melt Cheese", 24, "Smashed Burger")
+
+    # White mash is supplied cooked in 6kg bags, replacing the former cooking
+    # recipe and raw-potato preparation requirement.
+    mash_meals = (meal_totals.get("STEAK WITH MUSHROOM SAUCE", 0)
+                  + meal_totals.get("BEEF MEATBALLS", 0))
+    mash_required = 152 * mash_meals
+    mash_bags = (mash_required + 5999) // 6000
+    heights, col = ensure_space_in_group(heights, 3 * ch + pad, "Ingredients to Get Ready")
+    x = xpos[col]
+    pdf.set_xy(x, heights[col])
+    table_title(x, "White Mashed Potato")
+    table_headers(x, [("Ingredient", .32), ("Qty (g)", .15), ("Meals", .15),
+                      ("Total (g)", .20), ("Bags (6kg)", .18)])
+    pdf.set_x(x)
+    for value, width in [("White Mashed Potato", .32), ("152", .15),
+                         (str(mash_meals), .15), (str(mash_required), .20), (str(mash_bags), .18)]:
+        pdf.cell(col_w * width, ch, value, 1)
+    pdf.ln(ch)
+    heights[col] = pdf.get_y() + pad
 
     # Chicken Pesto Sundried
     pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0) or 0
@@ -506,6 +525,23 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ],
         include_total=False,
     )
+
+    # Cooked meatballs are supplied as 20 individual meatballs per bag.
+    meatball_meals = get_meals("Beef Meatballs")
+    meatball_units = 3 * meatball_meals
+    meatball_bags = (meatball_units + 19) // 20
+    heights, col = ensure_space_in_group(heights, 3 * ch + pad, "Prepack Cooked Ingredient Checks")
+    x = xpos[col]
+    pdf.set_xy(x, heights[col])
+    table_title(x, "Cooked Meatballs")
+    table_headers(x, [("Ingredient", .32), ("Meals", .16), ("Units", .14),
+                      ("Total", .18), ("Bags (20)", .20)])
+    pdf.set_x(x)
+    for value, width in [("Meatballs", .32), (str(meatball_meals), .16), ("3", .14),
+                         (str(meatball_units), .18), (str(meatball_bags), .20)]:
+        pdf.cell(col_w * width, ch, value, 1)
+    pdf.ln(ch)
+    heights[col] = pdf.get_y() + pad
 
     # Pre Cooked
     moroccan_meals = get_meals("Moroccan Chicken", "MORROCAN CHICKEN", "Moroccan", "MORROCAN")
