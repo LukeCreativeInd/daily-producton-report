@@ -1,4 +1,5 @@
 from quantities import normalize_meal_totals
+from bulk_section import roasted_potato_requirements
 import math
 from utils import fmt_int_up
 
@@ -100,6 +101,9 @@ def draw_meat_veg_section(
             return 0
 
         # Handle custom bulk sections (Sweet Potato Mash uses meal-specific per-meal grams)
+        if section.get("custom_type") == "roasted_potato_split" and ingredient == "Roasted Potatoes":
+            _, _, batches, per_batch = roasted_potato_requirements(meal_totals, section)
+            return per_batch["Roasted Potatoes"] * batches
         if section.get("custom_type") == "sweet_potato_split" and ingredient == "Sweet Potato":
             total = 0
             for meal_name, per in section.get("meals", {}).items():
@@ -207,7 +211,10 @@ def draw_meat_veg_section(
         ),
         ("5MM MONGOLIAN CAPSICUM", get_batch_total("Mongolian Beef", "Capsicum")),
         ("5MM MONGOLIAN ONION", get_batch_total("Mongolian Beef", "Onion")),
-        ("BROCCOLI", get_batch_total("Chicken and Broccoli Pasta", "Broccoli")),
+        ("BROCCOLI", get_batch_total("Chicken and Broccoli Pasta", "Broccoli")
+         + get_bulk_total("Creamy Fettuccine", "Steamed Broccoli")),
+        ("30MM Diced Pumpkin", get_bulk_total("Sunday Roast Vegetables", "Roast Diced Pumpkin")),
+        ("20mm Carrot Discs", get_bulk_total("Sunday Roast Vegetables", "Roast Carrot Discs")),
         ("CRATED CARROTS", get_batch_total("Spaghetti Bolognese", "Carrot")),
         ("CRATED ZUCCHINI", get_batch_total("Spaghetti Bolognese", "Zucchini")),
         ("LEMON POTATO", get_bulk_total("Roasted Lemon Potatoes", "Potatoes")),
