@@ -1,3 +1,4 @@
+from quantities import normalize_meal_totals
 import math
 from datetime import datetime
 from utils import fmt_int_up, fmt_qty
@@ -26,8 +27,6 @@ bulk_sections = [
          "Mongolian Beef",
          "Butter Chicken",
          "Thai Green Chicken Curry",
-         "Bean Nachos with Rice",
-         "Chicken Fajita Bowl"
      ]},
 
     {"title": "Moroccan Chicken", "batch_ingredient": "Chicken", "batch_size": 0,
@@ -38,12 +37,12 @@ bulk_sections = [
     # We hide Oil + Roast Chicken Mix rows, but add their weight into Premixed Chicken totals.
     {"title": "Premixed Chicken Thigh", "batch_ingredient": "Premixed Chicken Thigh", "batch_size": 0,
  "ingredients": {"Premixed Chicken Thigh": 160},
- "meals": ["Chicken Fajita Bowl", "Roasted Lemon Chicken & Potatoes"]},
+ "meals": ["Roasted Lemon Chicken & Potatoes"]},
 
     # Updated Steak quantities
     {"title": "Steak", "batch_ingredient": "Steak", "batch_size": 0,
      "ingredients": {"Steak": 100, "Oil": 1.6, "Baking Soda": 1},
-     "meals": ["Steak with Mushroom Sauce", "Steak On Its Own"]},
+     "meals": ["Steak with Mushroom Sauce"]},
 
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
  "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
@@ -83,7 +82,6 @@ bulk_sections = [
     {"title": "Green Beans", "batch_ingredient": "Green Beans", "batch_size": 0,
      "ingredients": {"Green Beans": 60},
      "meals": [
-         "Chicken with Vegetables",
          "Chicken with Sweet Potato and Beans",
          "Steak with Mushroom Sauce"
      ]},
@@ -95,6 +93,7 @@ bulk_sections = [
 ]
 
 def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=None):
+    meal_totals = normalize_meal_totals(meal_totals)
     title1 = "Bulk Raw Ingredients to Cook"
     if start_y is None:
         pdf.add_page()
