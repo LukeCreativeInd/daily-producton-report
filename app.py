@@ -1,129 +1,12 @@
 import streamlit as st
 import pandas as pd
-from fpdf import FPDF
 from datetime import datetime, date, timedelta
-import os, copy, io
+import io
 import requests
 import base64
-import math
 import calendar
 from zoneinfo import ZoneInfo
 
-from utils import fmt_weight  # totals
-from utils import fmt_qty  # per-unit
-
-from bulk_section import draw_bulk_section, bulk_sections
-from recipes_section import draw_recipes_section, meal_recipes
-from prepack_room_section import draw_prepack_room_section
-from meat_veg_section import draw_meat_veg_section
-
-# ---------- PDF Header (HACCP) ----------
-# These are intentionally static and only change when HACCP docs are reviewed.
-HACCP_LATEST_ISSUE_DATE = "13/01/24"
-HACCP_PREVIOUS_ISSUE_DATE = "28/10/23"
-HACCP_APPROVED_BY = "T. Fadlallah"
-HACCP_PREPARED_BY = "C. Guzzardi"
-
-
-class ProductionPDF(FPDF):
-    """
-    FPDF with a fixed HACCP header rendered on every page.
-
-    Important:
-    - fpdf (classic) is latin-1 only. Any unicode (e.g. “–”, “—”, smart quotes) will crash output().
-    - We defensively coerce ALL text going into cell/multi_cell into latin-1 (with replacement)
-      so a single bad character can’t break the whole report.
-    """
-
-    def __init__(self, *args, header_date_str: str, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.header_date_str = header_date_str
-
-        # Header layout constants (mm)
-        self._hdr_x = 10
-        self._hdr_y = 10
-        self._hdr_w = 210 - 20
-        # Row heights: main title, date/page, HACCP title, issue row, approved/prepared row
-        self._hdr_rows = [12, 10, 8, 6, 6]
-        self._hdr_h = sum(self._hdr_rows)
-        self._hdr_gap = 6  # space below header before page content starts
-
-        # Copy label (set by app.py while rendering sections)
-        self.copy_no = 1
-        self.copy_total = 1
-
-    # --- latin-1 safety ---
-    @staticmethod
-    def _latin1(txt) -> str:
-        if txt is None:
-            return ""
-        s = str(txt)
-        # Replace unsupported characters rather than throwing UnicodeEncodeError
-        return s.encode("latin-1", "replace").decode("latin-1")
-
-    # Override core text writers so all downstream sections are protected
-    def cell(self, w, h=0, txt="", border=0, ln=0, align="", fill=False, link=""):
-        return super().cell(w, h, self._latin1(txt), border, ln, align, fill, link)
-
-    def multi_cell(self, w, h, txt="", border=0, align="J", fill=False):
-        return super().multi_cell(w, h, self._latin1(txt), border, align, fill)
-
-    def header(self):
-        # Outer box
-        x0, y0, w = self._hdr_x, self._hdr_y, self._hdr_w
-        r1, r2, r3, r4, r5 = self._hdr_rows
-        self.set_line_width(0.4)
-        self.rect(x0, y0, w, self._hdr_h)
-
-        # Row 1: main title
-        self.set_xy(x0, y0)
-        self.set_font("Arial", "B", 18)
-        self.cell(w, r1, "Production Schedule Report", border=0, ln=1, align="C")
-
-        # Row 2: date and page  (IMPORTANT: use ASCII hyphen, not unicode en dash)
-        self.set_xy(x0, y0 + r1)
-        self.set_font("Arial", "B", 14)
-        self.cell(
-            w,
-            r2,
-            f"{self.header_date_str} - Page {self.page_no()}   Copy {self.copy_no}/{self.copy_total}",
-            border=0,
-            ln=1,
-            align="C",
-        )
-
-        # Horizontal lines between rows
-        y = y0 + r1
-        self.line(x0, y, x0 + w, y)
-        y = y0 + r1 + r2
-        self.line(x0, y, x0 + w, y)
-        y = y0 + r1 + r2 + r3
-        self.line(x0, y, x0 + w, y)
-        y = y0 + r1 + r2 + r3 + r4
-        self.line(x0, y, x0 + w, y)
-
-        # Row 3: HACCP title
-        self.set_xy(x0, y0 + r1 + r2)
-        self.set_font("Arial", "B", 13)
-        self.cell(w, r3, "Clean Eats Australia - HACCP FSP Section F - Form 1", border=0, ln=1, align="C")
-
-        # Row 4: issue dates (2 columns)
-        half = w / 2
-        self.set_font("Arial", "", 9)
-        self.set_xy(x0, y0 + r1 + r2 + r3)
-        self.cell(half, r4, f"Latest Issue Date: {HACCP_LATEST_ISSUE_DATE}", border=0, align="C")
-        self.cell(half, r4, f"Previous Issue Date: {HACCP_PREVIOUS_ISSUE_DATE}", border=0, ln=1, align="C")
-        # vertical split line
-        self.line(x0 + half, y0 + r1 + r2 + r3, x0 + half, y0 + r1 + r2 + r3 + r4)
-
-        # Row 5: approved / prepared (2 columns)
-        self.set_xy(x0, y0 + r1 + r2 + r3 + r4)
-        self.cell(half, r5, f"Approved by: {HACCP_APPROVED_BY}", border=0, align="C")
-        self.cell(half, r5, f"Prepared by: {HACCP_PREPARED_BY}", border=0, ln=1, align="C")
-        self.line(x0 + half, y0 + r1 + r2 + r3 + r4, x0 + half, y0 + self._hdr_h)
-
-        # Move cursor below header so subsequent content starts in the right place
-        self.set_y(y0 + self._hdr_h + self._hdr_gap)
 
 # ---------- Page ----------
 st.set_page_config(page_title="Production Report", layout="wide")
@@ -133,15 +16,10 @@ st.title("📦 Production Report")
 LOCAL_TZ = ZoneInfo("Australia/Melbourne")
 
 # ---------- Constants ----------
-SUMMARY_MEAL_ORDER = [
-    "Spaghetti Bolognese","Beef Chow Mein","Shepherd's Pie","Beef Burrito Bowl","Beef Meatballs",
-    "Lebanese Beef Stew","Mongolian Beef","Chicken with Vegetables","Chicken with Sweet Potato and Beans",
-    "Naked Chicken Parma","Chicken Pesto Pasta","Chicken and Broccoli Pasta","Butter Chicken",
-    "Thai Green Chicken Curry","Moroccan Chicken","Steak with Mushroom Sauce",
-    "Creamy Chicken & Mushroom Gnocchi","Roasted Lemon Chicken & Potatoes","Beef Lasagna",
-    "Bean Nachos with Rice","Lamb Souvlaki","Chicken Fajita Bowl","Steak On Its Own","Chicken On Its Own",
-    "Family Mac and 3 Cheese Pasta Bake","Baked Family Lasagna"
-]
+from meal_catalog import SUMMARY_MEAL_ORDER, ACTIVE_BRANDS, PENDING_RECIPE_MEALS
+from quantities import normalize_upload, daily_summary, weekly_summary, historical_summary
+from report_pdf import build_daily_report, build_weekly_report
+
 
 # 🔧 UPDATE THESE 2 TO MATCH YOUR REPO / TOKEN SECRET NAME
 GITHUB_REPO = "LukeCreativeInd/kitchen_planner_test"
@@ -225,102 +103,6 @@ def fetch_csv_from_github(path: str) -> pd.DataFrame | None:
         return None
 
 # ---------- Helpers ----------
-def draw_summary_section(pdf, df, brand_names, production_date):
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 13)
-    pdf.cell(0, 9, "Meal Production Summary", ln=1, align='C')
-    pdf.ln(2)
-
-    # ---- Table ----
-    n_cols = 1 + len(brand_names) + 2
-    a4_w = 210
-    a4_h = 297
-    available_w = a4_w - 20
-    meal_col_w = 60 if n_cols <= 6 else 50
-    other_col_w = (available_w - meal_col_w) / (n_cols - 1) if n_cols > 1 else available_w
-    col_widths = [meal_col_w] + [other_col_w] * (n_cols - 1)
-
-    headers = ["Meal"] + brand_names + ["Already Made", "Total"]
-    pdf.set_font("Arial", "B", 9)
-    for h, w in zip(headers, col_widths):
-        pdf.cell(w, 7, h, 1, 0, 'C')
-    pdf.ln(7)
-
-    pdf.set_font("Arial", "", 8)
-    for _, row in df.iterrows():
-        pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
-        for i, brand in enumerate(brand_names):
-            qty = row[brand] if brand in row else 0
-            pdf.cell(col_widths[i+1], 6, str(qty), 1)
-        pdf.cell(col_widths[len(brand_names)+1], 6, str(row["Already Made"]), 1)
-        pdf.cell(col_widths[len(brand_names)+2], 6, str(row["Total"]), 1)
-        pdf.ln(6)
-
-    pdf.set_font("Arial", "B", 8)
-    pdf.cell(col_widths[0], 6, "TOTAL", 1)
-    for i, brand in enumerate(brand_names):
-        pdf.cell(col_widths[i+1], 6, str(df[brand].sum() if brand in df else 0), 1)
-    pdf.cell(col_widths[len(brand_names)+1], 6, str(df["Already Made"].sum()), 1)
-    pdf.cell(col_widths[len(brand_names)+2], 6, str(df["Total"].sum()), 1)
-    pdf.ln(6)
-
-    # ---- Use By Dates block (below meal summary table) ----
-    # Dates are inclusive of production date (e.g. 28 days incl today => today + 27)
-    use_by = [
-        ("Family Lasagna", production_date + timedelta(days=27)),
-        ("Family Mac & Cheese", production_date + timedelta(days=20)),
-        ("Beef Lasagna", production_date + timedelta(days=20)),
-        ("Individual Meals", production_date + timedelta(days=13)),
-    ]
-
-    block_x = 10
-    block_w = 210 - 20
-    row_h = 6
-
-    # If we're too close to the bottom of the page, push the Use By box onto a fresh page
-    if pdf.get_y() + (row_h * 3) + 6 > (a4_h - 17):
-        pdf.add_page()
-
-    pdf.ln(3)
-    y0 = pdf.get_y()
-    pdf.set_line_width(0.4)
-    pdf.rect(block_x, y0, block_w, row_h * 3)
-
-    # Row 1 merged title
-    pdf.set_xy(block_x, y0)
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(block_w, row_h, "Use By Dates", border=0, ln=1, align="C")
-
-    # Line between row1 and row2
-    pdf.line(block_x, y0 + row_h, block_x + block_w, y0 + row_h)
-
-    # Row 2 + 3: 2 columns (CENTERED)
-    col_w = block_w / 2
-    pdf.set_font("Arial", "", 9)
-
-    def cell_text(name, d):
-        return f"{name} - {d.strftime('%d/%m/%Y')}"
-
-    # Row 2
-    pdf.set_xy(block_x, y0 + row_h)
-    pdf.cell(col_w, row_h, cell_text(use_by[0][0], use_by[0][1]), border=0, ln=0, align="C")
-    pdf.set_xy(block_x + col_w, y0 + row_h)
-    pdf.cell(col_w, row_h, cell_text(use_by[1][0], use_by[1][1]), border=0, ln=0, align="C")
-
-    # Vertical line
-    pdf.line(block_x + col_w, y0 + row_h, block_x + col_w, y0 + row_h * 3)
-
-    # Line between row2 and row3
-    pdf.line(block_x, y0 + row_h * 2, block_x + block_w, y0 + row_h * 2)
-
-    # Row 3
-    pdf.set_xy(block_x, y0 + row_h * 2)
-    pdf.cell(col_w, row_h, cell_text(use_by[2][0], use_by[2][1]), border=0, ln=0, align="C")
-    pdf.set_xy(block_x + col_w, y0 + row_h * 2)
-    pdf.cell(col_w, row_h, cell_text(use_by[3][0], use_by[3][1]), border=0, ln=0, align="C")
-
-    pdf.ln(row_h * 2 + 3)
-    return pdf.get_y()
 
 def parse_daily_filename(name: str):
     try:
@@ -379,10 +161,9 @@ tab1, tab2, tab3 = st.tabs(["📥 Upload & Generate", "📄 Document History", "
 with tab1:
     st.subheader("Step 1: Upload Production Files")
     uploaded_files = {}
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1: uploaded_files['Clean Eats'] = st.file_uploader("Clean Eats File", type=["csv", "xlsx"], key="clean_eats")
     with col2: uploaded_files['Made Active'] = st.file_uploader("Made Active File", type=["csv", "xlsx"], key="made_active")
-    with col3: uploaded_files['Elite Meals'] = st.file_uploader("Elite Meals File", type=["csv", "xlsx"], key="elite_meals")
 
     st.subheader("Step 2: Select Report Date")
     selected_date = st.date_input("Production Date", value=datetime.now(LOCAL_TZ))
@@ -404,22 +185,19 @@ with tab1:
                 df = pd.read_csv(f) if f.name.endswith(".csv") else pd.read_excel(f)
             except Exception as e:
                 st.error(f"{brand} failed to read: {e}")
-                continue
-            df.columns = df.columns.str.strip()
-            if not {"Product name","Quantity"}.issubset(df.columns):
-                st.error(f"{brand} file must have 'Product name' and 'Quantity'")
-                continue
-            df = df[["Product name","Quantity"]]
-            df["Product name"] = df["Product name"].astype(str).str.strip()
-            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0).astype(int)
-            df = df.groupby("Product name", as_index=False).sum()
+                st.stop()
+            try:
+                df = normalize_upload(df)
+            except ValueError as error:
+                st.error(f"{brand}: {error}")
+                st.stop()
             dataframes.append(df); brand_names.append(brand)
     else:
         st.info("Upload at least one production file to generate a daily report.")
 
     # --- Editable merged summary ---
     if dataframes:
-        # Only include the 26 production meal options in the summary table.
+        # Only include the current production meal options in the summary table.
         # This prevents POS materials, packs, memberships, or other non-meal products
         # from appearing in the production report.
         all_products = SUMMARY_MEAL_ORDER
@@ -435,129 +213,35 @@ with tab1:
         st.subheader("Step 4: Adjust Quantities (if needed)")
         edited_df = st.data_editor(
             summary_df,
-            num_rows="dynamic",
+            num_rows="fixed",
             width='stretch',
-            column_config={b: {"width":70} for b in (brand_names+["Already Made"])},
+            disabled=["Product name"],
+            column_config={b: st.column_config.NumberColumn(width=100, min_value=0, step=1, default=0)
+                           for b in (brand_names+["Already Made"])},
             key="editable_table_daily"
         )
-        if brand_names:
-            edited_df["Total"] = (edited_df[brand_names].sum(axis=1)-edited_df["Already Made"]).clip(lower=0)
-        else:
-            edited_df["Total"]=0
+        try:
+            edited_df = daily_summary(edited_df, brand_names)
+        except ValueError as error:
+            st.error(str(error))
+            st.stop()
+        st.caption("Blank quantity cells are treated as 0. New meals are listed for planning; production instructions are pending.")
 
-        # Keep only the 26 production meals, then sort them in production order.
-        edited_df = edited_df[edited_df["Product name"].isin(SUMMARY_MEAL_ORDER)].copy()
-        edited_df["meal_order"] = edited_df["Product name"].apply(lambda x: SUMMARY_MEAL_ORDER.index(x))
-        edited_df = edited_df.sort_values("meal_order").drop(columns=["meal_order"])
         st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
 
         meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
-        custom_meal_recipes = copy.deepcopy(meal_recipes)
-        for r,c in bulk_toggles.items():
-            if c and r in custom_meal_recipes:
-                for ing in custom_meal_recipes[r].get("ingredients",{}): custom_meal_recipes[r]["ingredients"][ing]=0
-                if "sub_section" in custom_meal_recipes[r]:
-                    for ing in custom_meal_recipes[r]["sub_section"].get("ingredients",{}): custom_meal_recipes[r]["sub_section"]["ingredients"][ing]=0
-
         if st.button("Generate & Save Production Report PDF"):
-            header_date = selected_date.strftime('%d/%m/%Y')
-            pdf = ProductionPDF(header_date_str=header_date)
-            pdf.set_auto_page_break(False)
-            a4_w, a4_h = 210, 297
-            left = 10
-            page_w = a4_w - 20
-            col_w = page_w / 2 - 5
-            ch, pad, bottom = 6, 4, a4_h - 17
-            xpos = [left, left + col_w + 10]
-
-            # Copy counts per section
-            copies = {
-                "summary": 2,
-                "bulk": 3,
-                "recipes": 2,
-                "prepack_room": 1,
-                "meat_veg": 3,
-            }
-
-            # --- Meal Summary (2 copies) ---
-            for c in range(1, copies["summary"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["summary"]
-                draw_summary_section(
-                    pdf,
-                    edited_df[["Product name"] + brand_names + ["Already Made", "Total"]],
-                    brand_names,
-                    selected_date,
-                )
-
-            # --- Bulk Raw Ingredients to Cook (3 copies) ---
-            for c in range(1, copies["bulk"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["bulk"]
-                pdf.add_page()
-                y = pdf.get_y()
-                y = draw_bulk_section(
-                    pdf,
-                    meal_totals,
-                    xpos,
-                    col_w,
-                    ch,
-                    pad,
-                    bottom,
-                    start_y=y,
-                    header_date=selected_date.strftime("%d/%m/%Y"),
-                )
-
-            # --- Meal Raw Ingredients to Cook (2 copies) ---
-            for c in range(1, copies["recipes"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["recipes"]
-                pdf.add_page()
-                y = pdf.get_y()
-                y = draw_recipes_section(
-                    pdf,
-                    meal_totals,
-                    xpos,
-                    col_w,
-                    ch,
-                    pad,
-                    bottom,
-                    start_y=y,
-                    meal_recipes_override=custom_meal_recipes,
-                )
-
-            # --- Pre-Pack Room (1 copy) ---
-            for c in range(1, copies["prepack_room"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["prepack_room"]
-                y = draw_prepack_room_section(
-                    pdf,
-                    meal_totals,
-                    xpos,
-                    col_w,
-                    ch,
-                    pad,
-                    bottom,
-                    start_y=None
-                )
-
-            # --- Meat Order and Veg Prep (3 copies) ---
-            for c in range(1, copies["meat_veg"] + 1):
-                pdf.copy_no, pdf.copy_total = c, copies["meat_veg"]
-                y = draw_meat_veg_section(
-                    pdf,
-                    meal_totals,
-                    custom_meal_recipes,
-                    bulk_sections,
-                    xpos,
-                    col_w,
-                    ch,
-                    pad,
-                    bottom,
-                    start_y=None
-                )
-
-            pdf_bytes = pdf.output(dest="S").encode("latin1")
+            try:
+                pdf_bytes = build_daily_report(edited_df, brand_names, selected_date, bulk_toggles)
+            except ValueError as error:
+                st.error(str(error))
+                st.stop()
             pdf_name = f"daily_production_report_{selected_date_str}_{now_str}.pdf"
             csv_name = f"daily_production_report_{selected_date_str}_{now_str}.csv"
-            push_pdf_to_github(pdf_bytes, pdf_name, weekly=False)
-            push_csv_to_github(edited_df[["Product name"]+brand_names+["Already Made","Total"]], csv_name)
+            saved_pdf = push_pdf_to_github(pdf_bytes, pdf_name, weekly=False)
+            saved_csv = push_csv_to_github(edited_df[["Product name"]+brand_names+["Already Made","Total"]], csv_name)
+            if not (saved_pdf and saved_csv):
+                st.warning("The report was generated, but saving the PDF or its data failed. Download your PDF below.")
             st.download_button("📄 Download Production Report PDF", pdf_bytes, file_name=pdf_name, mime="application/pdf")
 
 # ----------------- TAB 2: History -----------------
@@ -723,19 +407,15 @@ with tab3:
                 if df is None:
                     missing.append(base)
                     continue
-                need = {"Product name", "Total"}
-                if not need.issubset(df.columns):
-                    brand_cols = [c for c in df.columns if c not in ("Product name","Already Made","Total")]
-                    if brand_cols:
-                        df["Total"] = (df[brand_cols].sum(axis=1) - df.get("Already Made", 0)).clip(lower=0)
-                    else:
-                        continue
-                if "Already Made" not in df.columns:
-                    df["Already Made"] = 0
-                dfs.append(df[["Product name","Already Made","Total"]])
+                try:
+                    dfs.append(historical_summary(df))
+                except ValueError as error:
+                    st.error(f"{base}: {error}")
+                    st.stop()
 
             if missing:
-                st.warning("Missing CSV for:\n\n- " + "\n- ".join(missing))
+                st.error("Missing CSV for:\n\n- " + "\n- ".join(missing))
+                st.stop()
 
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
@@ -757,51 +437,31 @@ with tab3:
 
                 edited_weekly = st.data_editor(
                     weekly_df,
-                    num_rows="dynamic",
+                    num_rows="fixed",
                     width='stretch',
                     key="weekly_editor_existing",
-                    column_config={"Total": {"width": 90}, "Adjustments": {"width": 110}}
+                    disabled=["Product name"],
+                    column_config={
+                        "Total": st.column_config.NumberColumn(min_value=0, step=1, default=0),
+                        "Already Made": st.column_config.NumberColumn(min_value=0, step=1, default=0),
+                        "Adjustments": st.column_config.NumberColumn(step=1, default=0),
+                    }
                 )
-                edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
+                try:
+                    edited_weekly = weekly_summary(edited_weekly)
+                except ValueError as error:
+                    st.error(str(error))
+                    st.stop()
 
                 st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from selected reports)"):
-                    header_date = f"{week_start.strftime('%d/%m/%Y')}-{week_end.strftime('%d/%m/%Y')}"
-                    pdf = ProductionPDF(header_date_str=header_date)
-                    pdf.set_auto_page_break(False)
-
-                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
-                    out_df = out_df.rename(columns={"Final Total": "Total"})
-                    out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
-                    out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
-
-                    title = f"Weekly Meal Summary - {week_start.strftime('%d/%m/%Y')} to {week_end.strftime('%d/%m/%Y')}"
-                    pdf.add_page()
-                    pdf.set_font("Arial", "B", 13)
-                    pdf.cell(0, 9, title, ln=1, align='C')
-                    pdf.ln(2)
-
-                    n_cols = 1 + 2
-                    a4_w = 210
-                    available_w = a4_w - 20
-                    meal_col_w = 80
-                    other_col_w = (available_w - meal_col_w) / (n_cols - 1)
-                    col_widths = [meal_col_w, other_col_w]
-
-                    headers = ["Meal", "Total"]
-                    pdf.set_font("Arial", "B", 9)
-                    for h, w in zip(headers, col_widths):
-                        pdf.cell(w, 7, h, 1, 0, 'C')
-                    pdf.ln(7)
-
-                    pdf.set_font("Arial", "", 8)
-                    for _, row in out_df.iterrows():
-                        pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
-                        pdf.cell(col_widths[1], 6, str(int(row["Total"])), 1)
-                        pdf.ln(6)
-
-                    pdf_bytes = pdf.output(dest="S").encode("latin1")
+                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].rename(columns={"Final Total": "Total"})
+                    try:
+                        pdf_bytes = build_weekly_report(out_df, week_start, week_end)
+                    except ValueError as error:
+                        st.error(str(error))
+                        st.stop()
                     now_local = datetime.now(LOCAL_TZ)
                     fname = f"weekly_summary_{week_start.strftime('%Y-%m-%d')}_to_{week_end.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(pdf_bytes, fname, weekly=True):
@@ -814,7 +474,7 @@ with tab3:
 
     # ---- From file uploads ----
     with tabs_week[1]:
-        st.caption("Optional: upload raw CSV/XLSX files from the week (any brand/day).")
+        st.caption("Optional: upload Clean Eats or Made Active CSV/XLSX files from the week.")
         week_files = st.file_uploader("Weekly files", type=["csv","xlsx"], accept_multiple_files=True, key="weekly_files_upload")
 
         today2 = date.today()
@@ -834,14 +494,12 @@ with tab3:
                     df = pd.read_csv(f) if f.name.endswith(".csv") else pd.read_excel(f)
                 except Exception as e:
                     st.error(f"Failed to read {f.name}: {e}")
-                    continue
-                df.columns = df.columns.str.strip()
-                if not {"Product name","Quantity"}.issubset(df.columns):
-                    st.warning(f"{f.name}: missing 'Product name' or 'Quantity' — skipped.")
-                    continue
-                df = df[["Product name","Quantity"]]
-                df["Product name"] = df["Product name"].astype(str).str.strip()
-                df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0).astype(int)
+                    st.stop()
+                try:
+                    df = normalize_upload(df)
+                except ValueError as error:
+                    st.error(f"{f.name}: {error}")
+                    st.stop()
                 dfs.append(df)
 
             if dfs:
@@ -857,51 +515,31 @@ with tab3:
 
                 edited_weekly = st.data_editor(
                     weekly_df,
-                    num_rows="dynamic",
+                    num_rows="fixed",
                     width='stretch',
                     key="weekly_editor_upload",
-                    column_config={"Total": {"width": 90}, "Adjustments": {"width": 110}}
+                    disabled=["Product name"],
+                    column_config={
+                        "Total": st.column_config.NumberColumn(min_value=0, step=1, default=0),
+                        "Already Made": st.column_config.NumberColumn(min_value=0, step=1, default=0),
+                        "Adjustments": st.column_config.NumberColumn(step=1, default=0),
+                    }
                 )
-                edited_weekly["Final Total"] = (edited_weekly["Total"] + edited_weekly["Adjustments"]).clip(lower=0)
+                try:
+                    edited_weekly = weekly_summary(edited_weekly)
+                except ValueError as error:
+                    st.error(str(error))
+                    st.stop()
 
                 st.dataframe(edited_weekly[["Product name","Already Made","Total","Adjustments","Final Total"]], width='stretch')
 
                 if st.button("Generate & Save Weekly Summary PDF (from uploads)"):
-                    header_date = f"{week_start2.strftime('%d/%m/%Y')}-{week_end2.strftime('%d/%m/%Y')}"
-                    pdf = ProductionPDF(header_date_str=header_date)
-                    pdf.set_auto_page_break(False)
-
-                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].copy()
-                    out_df = out_df.rename(columns={"Final Total": "Total"})
-                    out_df["Already Made"] = pd.to_numeric(out_df["Already Made"], errors="coerce").fillna(0).astype(int)
-                    out_df["Total"] = pd.to_numeric(out_df["Total"], errors="coerce").fillna(0).astype(int)
-
-                    title = f"Weekly Meal Summary - {week_start2.strftime('%d/%m/%Y')} to {week_end2.strftime('%d/%m/%Y')}"
-                    pdf.add_page()
-                    pdf.set_font("Arial", "B", 13)
-                    pdf.cell(0, 9, title, ln=1, align='C')
-                    pdf.ln(2)
-
-                    n_cols = 1 + 2
-                    a4_w = 210
-                    available_w = a4_w - 20
-                    meal_col_w = 80
-                    other_col_w = (available_w - meal_col_w) / (n_cols - 1)
-                    col_widths = [meal_col_w, other_col_w]
-
-                    headers = ["Meal", "Total"]
-                    pdf.set_font("Arial", "B", 9)
-                    for h, w in zip(headers, col_widths):
-                        pdf.cell(w, 7, h, 1, 0, 'C')
-                    pdf.ln(7)
-
-                    pdf.set_font("Arial", "", 8)
-                    for _, row in out_df.iterrows():
-                        pdf.cell(col_widths[0], 6, str(row["Product name"]), 1)
-                        pdf.cell(col_widths[1], 6, str(int(row["Total"])), 1)
-                        pdf.ln(6)
-
-                    pdf_bytes = pdf.output(dest="S").encode("latin1")
+                    out_df = edited_weekly[["Product name", "Already Made", "Final Total"]].rename(columns={"Final Total": "Total"})
+                    try:
+                        pdf_bytes = build_weekly_report(out_df, week_start2, week_end2)
+                    except ValueError as error:
+                        st.error(str(error))
+                        st.stop()
                     now_local = datetime.now(LOCAL_TZ)
                     fname = f"weekly_summary_{week_start2.strftime('%Y-%m-%d')}_to_{week_end2.strftime('%Y-%m-%d')}_{now_local.strftime('%H-%M-%S')}.pdf"
                     if push_pdf_to_github(pdf_bytes, fname, weekly=True):
