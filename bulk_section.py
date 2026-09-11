@@ -17,9 +17,9 @@ bulk_sections = [
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
 
     {"title": "Fettuccine Order", "custom_type": "pasta_trays",
-     "pasta_name": "Fettuccine", "pasta_per_meal": 86.6,
+     "pasta_name": "Fettuccine", "pasta_per_meal": 86.6, "oil_per_meal": 0.87,
      "pasta_per_tray": 1500, "water_per_tray": 2000,
-     "show_oil": False, "show_raw_pasta": False,
+     "show_oil": True, "show_raw_pasta": False,
      "meals": ["Creamy Fettuccine"]},
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
@@ -54,10 +54,6 @@ bulk_sections = [
     {"title": "Lamb Marinate", "batch_ingredient": "Lamb Shoulder", "batch_size": 0,
  "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
  "meals": ["Lamb Souvlaki"]},
-
-    {"title": "Potato Mash", "batch_ingredient": "Potato", "batch_size": 0,
-     "ingredients": {"Potato": 158.40, "Cooking Cream": 21.12, "Butter": 7.39, "Salt": 1.58, "White Pepper": 0.2},
-     "meals": ["Beef Meatballs", "Steak with Mushroom Sauce"]},
 
     # Custom Sweet Potato Mash logic (different per-meal grams by meal)
     {"title": "Sweet Potato Mash", "custom_type": "sweet_potato_split",
@@ -195,8 +191,8 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
             continue
         # Penne and spaghetti are cooked in oven trays using their own water ratios.
         if sec.get("custom_type") == "pasta_trays":
-            # Fettuccine needs only pasta and water; existing pasta tables keep
-            # their oil and raw-pasta rows.
+            # Fettuccine includes pasta, oil and water; existing pasta tables
+            # also keep their raw-pasta row.
             lines = 2 + int(sec.get("show_oil", True)) + int(sec.get("show_raw_pasta", True))
             block_h = (2 + lines) * ch + pad
             heights, col = ensure_space(heights, block_h, title1)
