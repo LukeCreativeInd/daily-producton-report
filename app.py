@@ -18,7 +18,7 @@ LOCAL_TZ = ZoneInfo("Australia/Melbourne")
 # ---------- Constants ----------
 from meal_catalog import SUMMARY_MEAL_ORDER, ACTIVE_BRANDS, PENDING_RECIPE_MEALS
 from quantities import normalize_upload, daily_summary, weekly_summary, historical_summary
-from report_pdf import build_daily_report, build_weekly_report
+from report_pdf import build_daily_report, build_weekly_report, pending_recipe_names
 
 
 # 🔧 UPDATE THESE 2 TO MATCH YOUR REPO / TOKEN SECRET NAME
@@ -230,6 +230,13 @@ with tab1:
         st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
 
         meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
+        pending = pending_recipe_names(meal_totals)
+        if pending:
+            st.warning(
+                "You can generate this report. Meal counts are included for "
+                + ", ".join(pending)
+                + ", but their ingredient and preparation quantities are not included until their recipes are added."
+            )
         if st.button("Generate & Save Production Report PDF"):
             try:
                 pdf_bytes = build_daily_report(edited_df, brand_names, selected_date, bulk_toggles)
