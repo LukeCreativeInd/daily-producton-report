@@ -225,7 +225,7 @@ with tab1:
         except ValueError as error:
             st.error(str(error))
             st.stop()
-        st.caption("Blank quantity cells are treated as 0. New meals are listed for planning; production instructions are pending.")
+        st.caption("Blank quantity cells are treated as 0.")
 
         st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
 
