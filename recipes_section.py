@@ -1,3 +1,4 @@
+from quantities import normalize_meal_totals
 import math
 from utils import fmt_int_up, fmt_qty
 
@@ -48,12 +49,6 @@ meal_recipes = {
         "batch": 0,
         "ingredients": {
             "Topside Steak": 100, "Baking Soda": 1, "Water": 10, "Soy Sauce": 5, "Cornflour": 2.5, "Capsicum": 37, "Onion": 37, "Rice": 130
-        }
-    },
-    "Chicken With Vegetables": {
-        "batch": 60,
-        "ingredients": {
-            "Chicken": 135, "Corn": 40, "Beans": 60, "Broccoli": 67
         }
     },
     "Chicken with Sweet Potato and Beans": {
@@ -110,19 +105,6 @@ meal_recipes = {
             "Topside Steak": 110
         }
     },
-    "Steak On Its Own": {
-        "batch": 20,
-        "ingredients": {
-            "Topside Steak": 200
-        }
-    },
-    "Bean Nachos with Rice": {
-        "batch": 60,
-        "ingredients": {
-            "Drained Beans": 80, "Carrot": 25, "Onion": 20, "Taco Seasoning": 1, "Salt": 1.5, "Pepper": 0.5, "Garlic": 2.5,
-            "Vegetable Oil": 1.5, "Cumin": 0.5, "Crushed Tomato": 85, "Water": 41.7
-        }
-    },
     "Beef Lasagna": {
         "batch": 0,
         "ingredients": {
@@ -135,18 +117,6 @@ meal_recipes = {
             "Lamb Shoulder": 140, "Potatoes": 140
         }
     },
-    "Chicken Fajita Bowl": {
-        "batch": 60,
-        "ingredients": {
-            "Chicken Thigh": 150, "Capsicum": 52, "Red Onion": 52, "Salsa": 30, "Rice": 130
-        }
-    },
-    "Chicken On Its Own": {
-        "batch": 6,
-        "ingredients": {
-            "Chicken Breast": 200
-        }
-    },
     "Creamy Chicken & Mushroom Gnocchi": {
         "batch": 36,
         "ingredients": {
@@ -156,6 +126,7 @@ meal_recipes = {
 }
 
 def draw_recipes_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, meal_recipes_override=None):
+    meal_totals = normalize_meal_totals(meal_totals)
     recipes = meal_recipes_override if meal_recipes_override is not None else meal_recipes
 
     pdf.set_y(start_y or pdf.get_y())
