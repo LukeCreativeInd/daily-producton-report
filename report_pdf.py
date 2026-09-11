@@ -2,7 +2,7 @@
 from fpdf import FPDF
 from datetime import timedelta
 import copy
-from meal_catalog import meal_label, check_recipe_readiness
+from meal_catalog import meal_label, PENDING_RECIPE_MEALS
 from quantities import daily_summary, normalize_columns, normalize_meal_totals, sorted_meals
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
@@ -42,6 +42,7 @@ class ProductionPDF(FPDF):
         # Copy label (set by app.py while rendering sections)
         self.copy_no = 1
         self.copy_total = 1
+        self.pending_recipes = []
 
     def set_font(self, family=None, style="", size=0):
         return super().set_font("Helvetica" if family == "Arial" else family, style, size)
@@ -73,6 +74,14 @@ class ProductionPDF(FPDF):
     def multi_cell(self, w, h, txt="", border=0, align="J", fill=False):
         return super().multi_cell(w=w, h=h, text=self._latin1(txt), border=border,
                                   align=align, fill=fill, new_x="LMARGIN", new_y="NEXT")
+
+    def footer(self):
+        if self.pending_recipes:
+            self.set_xy(10, 285)
+            self.set_font("Arial", "B", 8)
+            self.cell(190, 3, "Pending recipes: " + ", ".join(self.pending_recipes), ln=1, align="C")
+            self.set_font("Arial", "", 8)
+            self.cell(190, 3, "Meal counts are included; ingredient and preparation quantities for these meals are not included.", align="C")
 
     def header(self):
         # Outer box
@@ -231,10 +240,14 @@ def draw_quality_control_section(pdf, frame):
     pdf.set_y(283)
 
 
+def pending_recipe_names(totals):
+    return [name for name in PENDING_RECIPE_MEALS if totals.get(name.upper(), 0) > 0]
+
+
 def build_daily_report(frame, brands, production_date, bulk_toggles=None):
     frame = daily_summary(frame, brands)
     totals = normalize_meal_totals(dict(zip(frame['Product name'].str.upper(), frame['Total'])))
-    check_recipe_readiness(totals)
+    pending = pending_recipe_names(totals)
     recipes = copy.deepcopy(meal_recipes)
     for name, prepared in (bulk_toggles or {}).items():
         if prepared and name in recipes:
@@ -243,6 +256,7 @@ def build_daily_report(frame, brands, production_date, bulk_toggles=None):
             for ingredient in recipes[name].get('sub_section', {}).get('ingredients', {}):
                 recipes[name]['sub_section']['ingredients'][ingredient] = 0
     pdf = ProductionPDF(header_date_str=production_date.strftime('%d/%m/%Y'))
+    pdf.pending_recipes = pending
     pdf.set_auto_page_break(False)
     for copy_no in (1, 2):
         pdf.copy_no, pdf.copy_total = copy_no, 2
