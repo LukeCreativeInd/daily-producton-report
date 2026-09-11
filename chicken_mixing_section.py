@@ -1,3 +1,4 @@
+from quantities import normalize_meal_totals
 import math
 
 from utils import fmt_int_up, fmt_weight
@@ -7,6 +8,7 @@ def draw_chicken_mixing_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, 
     Always starts on a NEW page (so it doesn't run directly after Sauces).
     Ignores start_y intentionally — header() controls the top spacing now.
     """
+    meal_totals = normalize_meal_totals(meal_totals)
 
     pdf.add_page()
 
