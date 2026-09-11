@@ -32,9 +32,11 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
             pdf.cell(0, 10, "Pre-Pack Room (cont.)", ln=1, align="C")
             pdf.ln(2)
 
-    def draw_group_heading(title: str):
+    def draw_group_heading(title: str, first_table_rows=0):
         # Centered, slightly smaller than main title
-        ensure_page_space(10)
+        # Keep the heading with its first table when added components change
+        # page boundaries.
+        ensure_page_space(10 + first_table_rows * ch + pad)
         pdf.set_font("Arial", "B", 12)
         pdf.cell(0, 8, title, ln=1, align="C")
         pdf.ln(1)
@@ -85,10 +87,25 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     def end_group(heights):
         pdf.set_y(max(heights) + pad)
 
+    def component_table(heights, group, title, ingredient, qty, meal):
+        heights, col = ensure_space_in_group(heights, 3 * ch + pad, group)
+        x = xpos[col]
+        pdf.set_xy(x, heights[col])
+        table_title(x, title)
+        table_headers(x, [("Ingredient", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)])
+        amt = meal_totals.get(meal.upper(), 0)
+        pdf.set_x(x)
+        for value, width in [(ingredient, .4), (fmt_qty(qty), .2),
+                             (str(amt), .2), (fmt_int_up(qty * amt), .2)]:
+            pdf.cell(col_w * width, ch, value, 1)
+        pdf.ln(ch)
+        heights[col] = pdf.get_y() + pad
+        return heights
+
     # -------------------
     # Sauces/Mixes to Prepare
     # -------------------
-    draw_group_heading("Sauces/Mixes to Prepare")
+    draw_group_heading("Sauces/Mixes to Prepare", 5)
     heights = group_init_heights()
 
     # Lamb Sauce
@@ -117,12 +134,14 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         pdf.ln(ch)
 
     heights[col] = pdf.get_y() + pad
+    heights = component_table(heights, "Sauces/Mixes to Prepare", "Burger Sauce",
+                              "Burger Sauce Container", 1, "Smashed Burger")
     end_group(heights)
 
     # -------------------
     # Sauces/Mixes to Get Ready
     # -------------------
-    draw_group_heading("Sauces/Mixes to Get Ready")
+    draw_group_heading("Sauces/Mixes to Get Ready", 9)
     heights = group_init_heights()
 
     # Chunky Salsa now serves Beef Burrito Bowl only.
@@ -134,11 +153,12 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Mongolian", 70, "MONGOLIAN BEEF"),
         ("Meatballs", 120, "BEEF MEATBALLS"),
         ("Lemon", 50, "ROASTED LEMON CHICKEN & POTATOES"),
-        ("Mushroom", 100, "STEAK WITH MUSHROOM SAUCE"),
+        ("Mushroom", None, None),
         ("Napoli Sauce", 40, "NAKED CHICKEN PARMA"),
         # removed from print: ("Burrito Sauce", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
         ("Chunky Salsa", None, None),
+        ("Gravy Sauce", 75, "SUNDAY ROAST LAMB"),
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
@@ -150,6 +170,16 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     table_headers(x, [("Sauce", 0.4), ("Qty", 0.2), ("Amt", 0.2), ("Total", 0.2)])
 
     for sauce, qty, meal_key in sauces_to_get_ready:
+        if sauce == "Mushroom":
+            steak_meals = meal_totals.get("STEAK WITH MUSHROOM SAUCE", 0)
+            fettuccine_meals = meal_totals.get("CREAMY FETTUCCINE", 0)
+            pdf.set_x(x)
+            for value, width in [("Mushroom", .4), ("", .2),
+                                 (str(steak_meals + fettuccine_meals), .2),
+                                 (fmt_int_up(100 * steak_meals + 170 * fettuccine_meals), .2)]:
+                pdf.cell(col_w * width, ch, value, 1)
+            pdf.ln(ch)
+            continue
         if sauce == "Chunky Salsa":
             # Qty blank; total is 45g per burrito meal.
             pdf.set_x(x)
@@ -177,6 +207,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Chow Mein", 230, "BEEF CHOW MEIN"),
         ("Shepherd's Pie", 210, "SHEPHERD'S PIE"),
         ("Burrito Bowl", 130, "BEEF BURRITO BOWL"),
+        ("Mixed Burger Sauce", 160, "SMASHED BURGER"),
     ]
 
     block_h = (2 + len(meat_to_get_ready)) * ch + pad
@@ -203,7 +234,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # -------------------
     # Ingredients to Get Ready
     # -------------------
-    draw_group_heading("Ingredients to Get Ready")
+    draw_group_heading("Ingredients to Get Ready", 3)
     heights = group_init_heights()
 
     # Parma Cheese (cheese only)
@@ -228,6 +259,9 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         pdf.ln(ch)
 
     heights[col] = pdf.get_y() + pad
+
+    heights = component_table(heights, "Ingredients to Get Ready", "Burger Cheese",
+                              "High Melt Cheese", 24, "Smashed Burger")
 
     # Chicken Pesto Sundried
     pesto_meals = meal_totals.get("CHICKEN PESTO PASTA", 0) or 0
@@ -255,7 +289,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # -------------------
     # Chicken to Mix
     # -------------------
-    draw_group_heading("Chicken to Mix")
+    draw_group_heading("Chicken to Mix", 4)
     heights = group_init_heights()
 
     mixes = [
@@ -298,7 +332,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # -------------------
     # Rice to Mix
     # -------------------
-    draw_group_heading("Rice to Mix")
+    draw_group_heading("Rice to Mix", 6)
     heights = group_init_heights()
 
     amt = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
@@ -357,7 +391,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # -------------------
     # Prepack Cooked Ingredient Checks
     # -------------------
-    draw_group_heading("Prepack Cooked Ingredient Checks")
+    draw_group_heading("Prepack Cooked Ingredient Checks", 8)
     heights = group_init_heights()
 
     def get_meals(*meal_keys):
@@ -382,14 +416,17 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         table_headers(x, [("Description", 0.44), ("Meals", 0.18), ("Qty (g)", 0.18), ("Total (g)", 0.20)])
 
         table_total = 0
-        for desc, meals, qty in rows:
-            total = (meals or 0) * (qty or 0)
+        for row in rows:
+            desc, meals, qty = row[:3]
+            # Combined components have different per-meal weights, so their
+            # Qty cell is blank and the total is supplied explicitly.
+            total = row[3] if len(row) == 4 else (meals or 0) * (qty or 0)
             table_total += total
 
             pdf.set_x(x)
             pdf.cell(col_w * 0.44, ch, str(desc)[:26], 1)
             pdf.cell(col_w * 0.18, ch, str(int(meals or 0)), 1)
-            pdf.cell(col_w * 0.18, ch, fmt_qty(qty or 0), 1)
+            pdf.cell(col_w * 0.18, ch, "" if qty is None else fmt_qty(qty), 1)
             pdf.cell(col_w * 0.20, ch, fmt_int_up(total), 1)
             pdf.ln(ch)
 
@@ -415,6 +452,8 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         [
             ("Naked Chicken Parma", parma_meals, 150),
             ("Lamb Souvlaki", lamb_souvlaki_meals, 140),
+            ("Smashed Burger", get_meals("Smashed Burger"), 160),
+            ("Sunday Roast Lamb", get_meals("Sunday Roast Lamb"), 100),
             ("Roasted Lemon Chicken", lemon_meals, 160),
         ],
         include_total=True,
@@ -455,11 +494,13 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # Meat
     lamb_meals = get_meals("Lamb Souvlaki")
     lamb_total = lamb_meals * 111
+    roast_lamb_meals = get_meals("Sunday Roast Lamb")
+    cooked_lamb_total = lamb_total + roast_lamb_meals * 120
 
     draw_cooked_check_table(
         "Meat",
         [
-            ("Lamb", lamb_meals, 111),
+            ("Cooked Lamb", lamb_meals + roast_lamb_meals, None, cooked_lamb_total),
             ("Mongolian", get_meals("MONGOLIAN BEEF"), 100),
             ("Steak", get_meals("STEAK WITH MUSHROOM SAUCE"), 80),
         ],
@@ -479,7 +520,8 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     )
 
     # Lamb Recipe Cooked
-    # Feeds from the Lamb row in the Meat table above. Salt = 0.5% of lamb,
+    # Souvlaki seasoning remains specific to the souvlaki portion of cooked lamb.
+    # Salt = 0.5% of lamb,
     # oregano = 0.75% of lamb, with batches kept around 10kg each.
     salt_total = lamb_total * 0.005
     oregano_total = lamb_total * 0.0075
