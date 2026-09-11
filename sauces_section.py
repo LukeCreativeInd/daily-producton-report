@@ -1,7 +1,9 @@
+from quantities import normalize_meal_totals
 import math
 from utils import fmt_int_up, fmt_weight
 
 def draw_sauces_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
+    meal_totals = normalize_meal_totals(meal_totals)
     sauces = {
         "Thai Sauce": {
             "ingredients": [("Green Curry Paste", 7.21), ("Coconut Cream", 97.85)],
