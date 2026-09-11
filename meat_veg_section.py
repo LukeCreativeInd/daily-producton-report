@@ -1,3 +1,4 @@
+from quantities import normalize_meal_totals
 import math
 from utils import fmt_int_up
 
@@ -11,6 +12,7 @@ def draw_meat_veg_section(
     - Respects HACCP header spacing (do NOT set y=10)
     - All totals are rounded UP to whole numbers (no decimals)
     """
+    meal_totals = normalize_meal_totals(meal_totals)
 
     # Always start on a new page (header() will place cursor below HACCP header)
     pdf.add_page()
@@ -145,15 +147,14 @@ def draw_meat_veg_section(
         ),
         (
             "TOPSIDE STEAK",
-            get_total_bulk_ingredient("Steak", "Steak")
-            + get_total_recipe_ingredient("Steak On Its Own", "Topside Steak"),
+            get_total_bulk_ingredient("Steak", "Steak"),
         ),
         ("LAMB SHOULDER", get_total_bulk_ingredient("Lamb Marinate", "Lamb Shoulder")),
         ("MORROCAN CHICKEN", get_total_bulk_ingredient("Moroccan Chicken", "Chicken")),
         (
             "ITALIAN CHICKEN",
             sum_totals_recipe_ingredients(
-                ["Chicken With Vegetables", "Chicken with Sweet Potato and Beans", "Naked Chicken Parma", "Chicken On Its Own"],
+                ["Chicken with Sweet Potato and Beans", "Naked Chicken Parma"],
                 "Chicken",
                 multiplier=153,
             ),
@@ -202,13 +203,12 @@ def draw_meat_veg_section(
             + (
                 meal_recipes.get("Moroccan Chicken", {}).get("sub_section", {}).get("ingredients", {}).get("Onion", 0)
                 * meal_totals.get("MOROCCAN CHICKEN".upper(), 0)
-            )
-            + get_batch_total("Bean Nachos with Rice", "Onion"),
+            ),
         ),
-        ("5MM MONGOLIAN CAPSICUM", get_batch_total("Mongolian Beef", "Capsicum") + get_batch_total("Chicken Fajita Bowl", "Capsicum")),
-        ("5MM MONGOLIAN ONION", get_batch_total("Mongolian Beef", "Onion") + get_batch_total("Chicken Fajita Bowl", "Red Onion")),
-        ("BROCCOLI", get_batch_total("Chicken and Broccoli Pasta", "Broccoli") + get_batch_total("Chicken With Vegetables", "Broccoli")),
-        ("CRATED CARROTS", get_batch_total("Spaghetti Bolognese", "Carrot") + get_batch_total("Bean Nachos with Rice", "Carrot")),
+        ("5MM MONGOLIAN CAPSICUM", get_batch_total("Mongolian Beef", "Capsicum")),
+        ("5MM MONGOLIAN ONION", get_batch_total("Mongolian Beef", "Onion")),
+        ("BROCCOLI", get_batch_total("Chicken and Broccoli Pasta", "Broccoli")),
+        ("CRATED CARROTS", get_batch_total("Spaghetti Bolognese", "Carrot")),
         ("CRATED ZUCCHINI", get_batch_total("Spaghetti Bolognese", "Zucchini")),
         ("LEMON POTATO", get_bulk_total("Roasted Lemon Potatoes", "Potatoes")),
         ("ROASTED PARMA POTATO", get_bulk_total("Roasted Parma Potatoes", "Roasted Potatoes")),
