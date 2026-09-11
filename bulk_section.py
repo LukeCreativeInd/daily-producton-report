@@ -1,6 +1,7 @@
 from quantities import normalize_meal_totals
 import math
 from datetime import datetime
+from decimal import Decimal, ROUND_CEILING
 from utils import fmt_int_up, fmt_qty
 
 # --- BULK SECTIONS (match names to uploaded CSV exactly) ---
@@ -14,6 +15,12 @@ bulk_sections = [
      "pasta_name": "Penne", "pasta_per_meal": 65.26, "oil_per_meal": 0.79,
      "pasta_per_tray": 2000, "water_per_tray": 5000,
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
+
+    {"title": "Fettuccine Order", "custom_type": "pasta_trays",
+     "pasta_name": "Fettuccine", "pasta_per_meal": 86.6,
+     "pasta_per_tray": 1500, "water_per_tray": 2000,
+     "show_oil": False, "show_raw_pasta": False,
+     "meals": ["Creamy Fettuccine"]},
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
     {"title": "Rice Order", "custom_type": "rice_trays",
@@ -62,13 +69,23 @@ bulk_sections = [
      "seasoning_per_200": {"Salt": 1, "White Pepper": 0.2}},
 
     # Renamed
-    {"title": "Roasted Parma Potatoes", "batch_ingredient": "Roasted Potatoes", "batch_size": 50,
-     "ingredients": {"Roasted Potatoes": 190, "Oil": 1.9, "Spices Mix": 1.9},
-     "meals": ["Naked Chicken Parma", "Lamb Souvlaki"]},
+    {"title": "Roasted Parma Potatoes", "custom_type": "roasted_potato_split",
+     "max_batch_grams": 7500,
+     "ingredients": {"Oil": 1.9, "Spices Mix": 1.9},
+     "meals": {"Naked Chicken Parma": 190.5, "Lamb Souvlaki": 177.8,
+               "Smashed Burger": 203.2, "Sunday Roast Lamb": 127}},
 
     {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
      "ingredients": {"Potatoes": 207, "Oil": 2, "Salt": 1.2},
      "meals": ["Roasted Lemon Chicken & Potatoes"]},
+
+    {"title": "Sunday Roast Vegetables", "batch_size": 0,
+     "ingredients": {"Roast Diced Pumpkin": 120, "Roast Carrot Discs": 74.1},
+     "meals": ["Sunday Roast Lamb"]},
+
+    {"title": "Creamy Fettuccine", "batch_size": 0,
+     "ingredients": {"Steamed Broccoli": 40},
+     "meals": ["Creamy Fettuccine"]},
 
     # Updated salt to 0.5
     {"title": "Roasted Thai Potatoes", "batch_ingredient": "Potato", "batch_size": 0,
@@ -91,6 +108,28 @@ bulk_sections = [
      "ingredients": {"Salsa": 43, "Black Beans": 50, "Corn": 50, "Rice": 130},
      "meals": ["Beef Burrito Bowl"]},
 ]
+
+def roasted_potato_requirements(meal_totals, section=None):
+    """Shared calculation for cooking batches and the vegetable order.
+
+    The 7.5kg cap includes oil and seasoning, including the displayed whole-gram
+    rounding of every ingredient. Decimal arithmetic avoids phantom extra grams.
+    """
+    if section is None:
+        section = next(s for s in bulk_sections if s.get("custom_type") == "roasted_potato_split")
+    counts = {m: meal_totals.get(m.upper(), 0) for m in section["meals"]}
+    meals = sum(counts.values())
+    totals = {"Roasted Potatoes": sum((Decimal(str(per)) * counts[m]
+                                       for m, per in section["meals"].items()), Decimal(0))}
+    totals.update({name: Decimal(str(per)) * meals for name, per in section["ingredients"].items()})
+    ceil = lambda value: int(value.to_integral_value(rounding=ROUND_CEILING))
+    batches = ceil(sum(totals.values()) / section["max_batch_grams"]) if meals else 0
+    per_batch = {name: ceil(value / batches) if batches else 0 for name, value in totals.items()}
+    while sum(per_batch.values()) > section["max_batch_grams"]:
+        batches += 1
+        per_batch = {name: ceil(value / batches) for name, value in totals.items()}
+    return meals, totals, batches, per_batch
+
 
 def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None, header_date=None):
     meal_totals = normalize_meal_totals(meal_totals)
@@ -135,10 +174,31 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
         pdf.set_font("Arial", "", 8)
 
     for sec in bulk_sections:
+        if sec.get("custom_type") == "roasted_potato_split":
+            heights, col = ensure_space(heights, 5 * ch + pad, title1)
+            x = xpos[col]
+            pdf.set_xy(x, heights[col])
+            pdf.set_font("Arial", "B", 11)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.cell(col_w, ch, sec["title"], ln=1, fill=True)
+            table_headers(x)
+            meals, totals, batches, per_batch = roasted_potato_requirements(meal_totals, sec)
+            for ingredient in totals:
+                qty = "" if ingredient == "Roasted Potatoes" else fmt_qty(sec["ingredients"][ingredient])
+                pdf.set_x(x)
+                for value, width in [(ingredient, .4), (qty, .15), (str(meals), .15),
+                                     (str(per_batch[ingredient]), .15),
+                                     (str(batches) if ingredient == "Roasted Potatoes" else "", .15)]:
+                    pdf.cell(col_w * width, ch, value, 1)
+                pdf.ln(ch)
+            heights[col] = pdf.get_y() + pad
+            continue
         # Penne and spaghetti are cooked in oven trays using their own water ratios.
         if sec.get("custom_type") == "pasta_trays":
-            # rows: title + headers + 4 lines (Pasta, Oil, Water, Raw Pasta)
-            block_h = (2 + 4) * ch + pad
+            # Fettuccine needs only pasta and water; existing pasta tables keep
+            # their oil and raw-pasta rows.
+            lines = 2 + int(sec.get("show_oil", True)) + int(sec.get("show_raw_pasta", True))
+            block_h = (2 + lines) * ch + pad
             heights, col = ensure_space(heights, block_h, title1)
             x, y = xpos[col], heights[col]
             pdf.set_xy(x, y)
@@ -173,9 +233,11 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
                 pdf.ln(ch)
 
             pasta_row(pasta_name, pasta_per_meal, total_meals, pasta_per_actual_tray, trays)
-            pasta_row("Oil", oil_per_meal, total_meals, oil_per_actual_tray, "")
+            if sec.get("show_oil", True):
+                pasta_row("Oil", oil_per_meal, total_meals, oil_per_actual_tray, "")
             pasta_row("Water", water_per_tray, trays, total_water, "")
-            pasta_row(f"Raw {pasta_name}", pasta_per_tray, trays, total_pasta, "")
+            if sec.get("show_raw_pasta", True):
+                pasta_row(f"Raw {pasta_name}", pasta_per_tray, trays, total_pasta, "")
 
             heights[col] = pdf.get_y() + pad
             continue
