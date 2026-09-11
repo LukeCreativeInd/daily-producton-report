@@ -1,7 +1,9 @@
+from quantities import normalize_meal_totals
 import math
 from utils import fmt_int_up, fmt_weight
 
 def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=None):
+    meal_totals = normalize_meal_totals(meal_totals)
     left_x = xpos[0]
     right_x = xpos[1]
     y = start_y or pdf.get_y()
@@ -29,7 +31,6 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
         ("MEATBALLS", 120, "BEEF MEATBALLS"),
         ("LEMON", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("MUSHROOM", 100, "STEAK WITH MUSHROOM SAUCE"),
-        ("FAJITA SAUCE", 33, "CHICKEN FAJITA BOWL"),
         ("BURRITO SAUCE", 43, "BEEF BURRITO BOWL"),
     ]
     for sauce, qty, meal_key in sauces:
