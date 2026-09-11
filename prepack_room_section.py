@@ -1,3 +1,4 @@
+from quantities import normalize_meal_totals
 import math
 from utils import fmt_int_up, fmt_qty
 
@@ -14,6 +15,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     - Rice to Mix
     - Prepack Cooked Ingredient Checks (placeholder for now)
     """
+    meal_totals = normalize_meal_totals(meal_totals)
 
     # Start on a new page for cleanliness
     pdf.add_page()
@@ -123,13 +125,10 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_group_heading("Sauces/Mixes to Get Ready")
     heights = group_init_heights()
 
-    # NOTE:
-    # Fajita Sauce + Burrito Sauce are the same sauce (Chunky Salsa).
-    # We hide them from print, but we still calculate their totals.
-    fajita_meals = meal_totals.get("CHICKEN FAJITA BOWL", 0) or 0
+    # Chunky Salsa now serves Beef Burrito Bowl only.
     burrito_meals = meal_totals.get("BEEF BURRITO BOWL", 0) or 0
-    chunky_salsa_amt = int(fajita_meals + burrito_meals)
-    chunky_salsa_total = (35 * fajita_meals) + (45 * burrito_meals)
+    chunky_salsa_amt = int(burrito_meals)
+    chunky_salsa_total = 45 * burrito_meals
 
     sauces_to_get_ready = [
         ("Mongolian", 70, "MONGOLIAN BEEF"),
@@ -137,7 +136,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Lemon", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("Mushroom", 100, "STEAK WITH MUSHROOM SAUCE"),
         ("Napoli Sauce", 40, "NAKED CHICKEN PARMA"),
-        # removed from print: ("Fajita Sauce", 33, "Chicken Fajita Bowl"),
         # removed from print: ("Burrito Sauce", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
         ("Chunky Salsa", None, None),
@@ -153,7 +151,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
 
     for sauce, qty, meal_key in sauces_to_get_ready:
         if sauce == "Chunky Salsa":
-            # Qty blank, Amt = combined meals, Total = (33*fajita) + (43*burrito)
+            # Qty blank; total is 45g per burrito meal.
             pdf.set_x(x)
             pdf.cell(col_w * 0.4, ch, "Chunky Salsa", 1)
             pdf.cell(col_w * 0.2, ch, "", 1)  # qty blank
@@ -427,7 +425,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         "Italian Chicken",
         [
             ("Naked Chicken Parma", parma_meals, 120),
-            ("Chicken With Vegetables", get_meals("Chicken With Vegetables"), 120),
             ("Chicken Sweet Potato", get_meals("CHICKEN WITH SWEET POTATO AND BEANS"), 120),
         ],
         include_total=True,
@@ -450,7 +447,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Chicken Thigh",
         [
-            ("Chicken Fajita Bowl", get_meals("Chicken Fajita Bowl"), 120),
             ("Roasted Lemon Chicken", lemon_meals, 130),
         ],
         include_total=True,
