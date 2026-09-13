@@ -54,12 +54,19 @@ def normalize_upload(frame):
     return frame.groupby('Product name', as_index=False)['Quantity'].sum()
 
 
+def brand_planned(frame, brand):
+    """Manufacturing demand from validated columns; stock belongs to Clean Eats."""
+    if brand == 'Clean Eats':
+        return (frame[brand] - frame['Already Made']).clip(lower=0)
+    return frame[brand]
+
+
 def daily_summary(frame, brands):
     if not brands or any(b not in ACTIVE_BRANDS for b in brands):
         raise ValueError('Select a supported production brand.')
     frame = sorted_meals(frame)
     frame = normalize_columns(frame, [*brands, 'Already Made'])
-    frame['Total'] = (frame[list(brands)].sum(axis=1) - frame['Already Made']).clip(lower=0)
+    frame['Total'] = sum(brand_planned(frame, brand) for brand in brands)
     return normalize_columns(frame, ['Total'])
 
 
