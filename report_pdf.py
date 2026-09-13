@@ -3,7 +3,7 @@ from fpdf import FPDF
 from datetime import timedelta
 import copy
 from meal_catalog import meal_label, PENDING_RECIPE_MEALS
-from quantities import daily_summary, normalize_columns, normalize_meal_totals, sorted_meals
+from quantities import brand_planned, daily_summary, normalize_columns, normalize_meal_totals, sorted_meals
 from bulk_section import draw_bulk_section, bulk_sections
 from recipes_section import draw_recipes_section, meal_recipes
 from prepack_room_section import draw_prepack_room_section
@@ -199,11 +199,12 @@ def draw_summary_section(pdf, df, brand_names, production_date):
     return pdf.get_y()
 
 
-def draw_quality_control_section(pdf, frame):
-    """A handwriting sheet: only Planned is populated from the validated summary."""
+def draw_quality_control_section(pdf, frame, brand):
+    """Separate brand manufacturing demand; staff recording fields remain blank."""
+    planned = brand_planned(frame, brand)
     pdf.add_page()
     pdf.set_font('Arial', 'B', 13)
-    pdf.cell(0, 9, 'Quality & Batch Control', ln=1, align='C')
+    pdf.cell(0, 9, f'Quality & Batch Control - {brand}', ln=1, align='C')
     pdf.ln(2)
     x, y = 10, pdf.get_y()
     widths = [74, 20, 20, 30, 21, 25]
@@ -224,10 +225,10 @@ def draw_quality_control_section(pdf, frame):
     pdf.cell(widths[2], half_h, 'Actual', 1, align='C')
     y += header_h
     pdf.set_font('Arial', '', 8)
-    for _, row in frame.iterrows():
+    for index, row in frame.iterrows():
         pdf.set_xy(x, y)
         pdf.cell(widths[0], row_h, meal_label(row['Product name']), 1)
-        pdf.cell(widths[1], row_h, str(int(row['Total'])), 1, align='C')
+        pdf.cell(widths[1], row_h, str(int(planned.loc[index])), 1, align='C')
         for width in widths[2:]:
             pdf.cell(width, row_h, '', 1)
         y += row_h
@@ -261,9 +262,10 @@ def build_daily_report(frame, brands, production_date, bulk_toggles=None):
     for copy_no in (1, 2):
         pdf.copy_no, pdf.copy_total = copy_no, 2
         draw_summary_section(pdf, frame, brands, production_date)
-    # One control sheet after the two existing summary copies.
+    # Separate control sheets for the brands included in this run.
     pdf.copy_no, pdf.copy_total = 1, 1
-    draw_quality_control_section(pdf, frame)
+    for brand in brands:
+        draw_quality_control_section(pdf, frame, brand)
     args = ([10, 110], 90, 6, 4, 280)
     for copy_no in (1, 2, 3):
         pdf.copy_no, pdf.copy_total = copy_no, 3
