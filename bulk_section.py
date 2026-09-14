@@ -17,8 +17,8 @@ bulk_sections = [
      "meals": ["Chicken Pesto Pasta", "Chicken and Broccoli Pasta"]},
 
     {"title": "Fettuccine Order", "custom_type": "pasta_trays",
-     "pasta_name": "Fettuccine", "pasta_per_meal": 86.6, "oil_per_meal": 0.87,
-     "pasta_per_tray": 1500, "water_per_tray": 2000,
+     "pasta_name": "Fettuccine", "pasta_per_meal": 85.32, "oil_per_meal": 0.85,
+     "pasta_per_tray": 2000, "water_per_tray": 4500,
      "show_oil": True, "show_raw_pasta": False,
      "meals": ["Creamy Fettuccine"]},
 
@@ -68,15 +68,15 @@ bulk_sections = [
     {"title": "Roasted Parma Potatoes", "custom_type": "roasted_potato_split",
      "max_batch_grams": 7500,
      "ingredients": {"Oil": 1.9, "Spices Mix": 1.9},
-     "meals": {"Naked Chicken Parma": 190.5, "Lamb Souvlaki": 177.8,
-               "Smashed Burger": 203.2, "Sunday Roast Lamb": 127}},
+     "meals": {"Naked Chicken Parma": 186, "Lamb Souvlaki": 173.6,
+               "Smashed Burger": 198.4, "Sunday Roast Lamb": 124}},
 
     {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
      "ingredients": {"Potatoes": 207, "Oil": 2, "Salt": 1.2},
      "meals": ["Roasted Lemon Chicken & Potatoes"]},
 
     {"title": "Sunday Roast Vegetables", "batch_size": 0,
-     "ingredients": {"Roast Diced Pumpkin": 120, "Roast Carrot Discs": 74.1},
+     "ingredients": {"Roast Diced Pumpkin": 82, "Roast Carrot Discs": 54},
      "meals": ["Sunday Roast Lamb"]},
 
     {"title": "Creamy Fettuccine", "batch_size": 0,
