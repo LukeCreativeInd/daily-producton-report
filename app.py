@@ -10,7 +10,8 @@ from zoneinfo import ZoneInfo
 
 # ---------- Page ----------
 st.set_page_config(page_title="Production Report", layout="wide")
-st.title("📦 Production Report")
+st.title("Production Report")
+st.caption("Plan meal quantities, prepare kitchen sheets and revisit saved production runs.")
 
 # ---------- Timezone ----------
 LOCAL_TZ = ZoneInfo("Australia/Melbourne")
@@ -19,6 +20,7 @@ LOCAL_TZ = ZoneInfo("Australia/Melbourne")
 from meal_catalog import SUMMARY_MEAL_ORDER, ACTIVE_BRANDS, PENDING_RECIPE_MEALS
 from quantities import normalize_upload, daily_summary, weekly_summary, historical_summary
 from report_pdf import build_daily_report, build_weekly_report, pending_recipe_names
+from rerun_support import BULK_RECIPES, parse_run_name, restore_run, saved_run, latest_selected_runs
 
 
 # 🔧 UPDATE THESE 2 TO MATCH YOUR REPO / TOKEN SECRET NAME
@@ -93,24 +95,23 @@ def list_files_from_github(folder: str, endswith: str = ".pdf"):
             for it in items if isinstance(it, dict) and it.get("name", "").endswith(endswith)]
 
 def fetch_csv_from_github(path: str) -> pd.DataFrame | None:
-    api_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{path}"
-    r = requests.get(api_url)
-    if r.status_code != 200:
-        return None
+    # Authenticated API reads also support private repositories and avoid raw-file caching.
     try:
-        return pd.read_csv(io.StringIO(r.text))
-    except Exception:
-        return None
+        response = requests.get(_contents_url(path), headers=_gh_headers(), timeout=30)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = response.json()
+        contents = base64.b64decode(payload['content'], validate=False).decode('utf-8-sig')
+        return pd.read_csv(io.StringIO(contents))
+    except (requests.RequestException, KeyError, ValueError, UnicodeError) as error:
+        raise ValueError('Could not load the saved report data. Refresh and try again.') from error
 
 # ---------- Helpers ----------
 
 def parse_daily_filename(name: str):
     try:
-        base = name.replace("daily_production_report_", "").replace(".pdf", "")
-        d, t = base.split("_", 1)
-        datetime.strptime(d, "%Y-%m-%d")
-        datetime.strptime(t, "%H-%M-%S")
-        return d, t
+        return parse_run_name(name)
     except Exception:
         return None, None
 
@@ -121,8 +122,7 @@ def human_label_from_filename(name: str):
         return name
     try:
         dt = datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S")
-        label = dt.strftime("%d/%m/%Y %I:%M %p").replace(" 0", " ")
-        return f"Daily Report — {label}"
+        return dt.strftime('%d/%m/%Y at %I:%M:%S %p').replace(' 0', ' ')
     except Exception:
         return name
 
@@ -154,26 +154,130 @@ def weekly_pretty_label(name: str) -> str:
     except Exception:
         return name
 
+def totals_overview(frame, brands):
+    columns = st.columns(len(brands) + 2)
+    for column, brand in zip(columns, brands):
+        column.metric(brand + ' demand', f"{int(frame[brand].sum()):,}")
+    columns[-2].metric('Already Made', f"{int(frame['Already Made'].sum()):,}")
+    columns[-1].metric('Meals to produce', f"{int(frame['Total'].sum()):,}")
+
+
+def generate_and_save(frame, brands, production_date, toggles, result_key, root=None):
+    try:
+        pdf = build_daily_report(frame, brands, production_date, toggles)
+        name, data = saved_run(frame, brands, production_date, toggles, datetime.now(LOCAL_TZ), root)
+        st.session_state[result_key] = (name, pdf)
+        # Data first: a report is only added to History once its rerun data exists.
+        saved_csv = push_csv_to_github(data, name.replace('.pdf', '.csv'))
+        saved_pdf = saved_csv and push_pdf_to_github(pdf, name)
+    except (ValueError, requests.RequestException) as error:
+        st.error(f'Could not complete the report: {error}. If a PDF was generated, it is available below.')
+        return
+    if saved_csv and saved_pdf:
+        st.success('Report saved. Its quantities and preparation settings are ready for future reruns.')
+        st.session_state.pop('history_daily', None)
+    else:
+        st.warning('The report could not be fully saved to History. Download it below, then try again.')
+
+
+def report_download(result_key):
+    if result_key in st.session_state:
+        name, pdf = st.session_state[result_key]
+        st.caption('Generated file: '+name)
+        st.download_button('Download generated PDF', pdf, file_name=name, mime='application/pdf', key=result_key+'_download')
+
+
+def report_picker(files, prefix, daily=True):
+    if not files:
+        st.info('No reports found.')
+        return None
+    files = sorted(files, key=lambda f: f['name'], reverse=True)
+    if daily:
+        months = sorted({month_group_key(f['name']) for f in files}, reverse=True)
+        month = st.selectbox('Month', months, format_func=lambda v: month_label(*v), key=prefix+'_month')
+        files = [f for f in files if month_group_key(f['name']) == month]
+    search = st.text_input('Find a report', placeholder='Date or part of the report name', key=prefix+'_search')
+    formatter = human_label_from_filename if daily else weekly_pretty_label
+    files = [f for f in files if search.casefold() in (f['name']+' '+formatter(f['name'])).casefold()]
+    if not files:
+        st.info('No reports match this search.')
+        return None
+    names = [f['name'] for f in files]
+    selected = st.selectbox('Report', names, format_func=formatter, key=prefix+'_selection')
+    return next(f for f in files if f['name']==selected)
+
+
+def rerun_editor(filename):
+    key = 'rerun_'+filename
+    if st.button('Load quantities for rerun', key=key+'_load', type='primary'):
+        # Always read afresh on explicit load; do not reuse another report's editor state.
+        st.session_state.pop('rerun_loaded', None)
+        try:
+            frame = fetch_csv_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}")
+            if frame is None:
+                raise ValueError('The PDF is available, but its saved quantities are missing. This report cannot be rerun automatically.')
+            restored = restore_run(frame, filename)
+            st.session_state['rerun_loaded'] = (filename, restored)
+            for state_key in list(st.session_state):
+                if state_key.startswith(key) and state_key != key+'_load':
+                    del st.session_state[state_key]
+        except ValueError as error:
+            st.error(str(error))
+    loaded = st.session_state.get('rerun_loaded')
+    if not loaded or loaded[0] != filename:
+        return
+    frame, brands, settings, issues = loaded[1]
+    production_date = date.fromisoformat(parse_run_name(filename)[0])
+    st.subheader('Review this rerun')
+    st.caption(f"Production date: {production_date:%d/%m/%Y}. Uses today's recipes and layout. The original report stays available.")
+    reviewed = True
+    if issues:
+        for issue in issues:
+            st.warning(issue)
+        reviewed = st.checkbox('I have reviewed the omitted meals and brands', key=key+'_omitted')
+    old_settings = settings['bulk_prepared'] if settings else dict.fromkeys(BULK_RECIPES, False)
+    with st.expander('Already-prepared recipes', expanded=settings is None):
+        st.caption('Tick only recipes already prepared in bulk. Their recipe ingredients will be set to zero.')
+        toggles = {name: st.checkbox(name, value=old_settings[name], key=key+'_bulk_'+name) for name in BULK_RECIPES}
+        if settings is None:
+            st.warning('This older report did not save these four settings. Check them before generating.')
+            reviewed = st.checkbox('I have checked the preparation settings', key=key+'_settings_checked') and reviewed
+    edited = st.data_editor(frame, disabled=['Product name'], num_rows='fixed', width='stretch',
+        column_config={b: st.column_config.NumberColumn(min_value=0, step=1, default=0) for b in [*brands, 'Already Made']}, key=key+'_editor')
+    try:
+        edited = daily_summary(edited, brands)
+    except ValueError as error:
+        st.error(str(error))
+        return
+    st.caption('Already Made applies to Clean Eats only. Made Active demand is not reduced.')
+    totals_overview(edited, brands)
+    pending = pending_recipe_names(dict(zip(edited['Product name'].str.upper(), edited['Total'])))
+    if pending:
+        st.warning('Recipes are pending for: '+', '.join(pending)+'. Their meal counts are included, but ingredients are not.')
+    if st.button('Generate & save rerun', key=key+'_generate', type='primary', disabled=not reviewed):
+        generate_and_save(edited, brands, production_date, toggles, key+'_result', settings['root'] if settings else filename)
+    report_download(key+'_result')
+
+
 # ---------- Tabs ----------
-tab1, tab2, tab3 = st.tabs(["📥 Upload & Generate", "📄 Document History", "📆 Weekly Summary"])
+tab1, tab2, tab3 = st.tabs(["New Report", "Document History", "Weekly Summary"])
 
 # ----------------- TAB 1: Daily Flow -----------------
 with tab1:
-    st.subheader("Step 1: Upload Production Files")
+    st.subheader("1. Upload meal quantities")
+    st.caption("Use the cleaned Clean Eats and/or Made Active files. To reuse saved quantities, open Document History.")
     uploaded_files = {}
     col1, col2 = st.columns(2)
     with col1: uploaded_files['Clean Eats'] = st.file_uploader("Clean Eats File", type=["csv", "xlsx"], key="clean_eats")
     with col2: uploaded_files['Made Active'] = st.file_uploader("Made Active File", type=["csv", "xlsx"], key="made_active")
 
-    st.subheader("Step 2: Select Report Date")
+    st.subheader("2. Production date")
     selected_date = st.date_input("Production Date", value=datetime.now(LOCAL_TZ))
     selected_date_str = selected_date.strftime('%Y-%m-%d')
-    now = datetime.now(LOCAL_TZ)
-    now_str = now.strftime('%H-%M-%S')
 
-    st.subheader("Step 3: Bulk-Prepared Recipe Toggles")
-    BULK_RECIPES = ["Spaghetti Bolognese","Beef Chow Mein","Beef Burrito Bowl","Shepherd's Pie"]
-    bulk_toggles = {r: st.checkbox(f"{r} already prepared (set all recipe ingredients to zero)", key=f"bulk_{r}") for r in BULK_RECIPES}
+    with st.expander('Already-prepared recipes (optional)'):
+        st.caption('Tick only recipes already prepared in bulk. Their recipe ingredients will be set to zero.')
+        bulk_toggles = {r: st.checkbox(r, key=f"bulk_{r}") for r in BULK_RECIPES}
 
     # --- Parse uploads (optional) ---
     dataframes, brand_names = [], []
@@ -210,7 +314,7 @@ with tab1:
         summary_df = pd.DataFrame(rows)
         if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
 
-        st.subheader("Step 4: Adjust Quantities (if needed)")
+        st.subheader("3. Review meal quantities")
         edited_df = st.data_editor(
             summary_df,
             num_rows="fixed",
@@ -227,7 +331,9 @@ with tab1:
             st.stop()
         st.caption("Blank quantity cells are treated as 0. Already Made applies to Clean Eats only; Made Active demand is not reduced.")
 
-        st.dataframe(edited_df[["Product name"]+brand_names+["Already Made","Total"]], width='stretch')
+        totals_overview(edited_df, brand_names)
+        with st.expander('View final meal totals'):
+            st.dataframe(edited_df[['Product name']+brand_names+['Already Made','Total']], width='stretch')
 
         meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
         pending = pending_recipe_names(meal_totals)
@@ -237,124 +343,43 @@ with tab1:
                 + ", ".join(pending)
                 + ", but their ingredient and preparation quantities are not included until their recipes are added."
             )
-        if st.button("Generate & Save Production Report PDF"):
-            try:
-                pdf_bytes = build_daily_report(edited_df, brand_names, selected_date, bulk_toggles)
-            except ValueError as error:
-                st.error(str(error))
-                st.stop()
-            pdf_name = f"daily_production_report_{selected_date_str}_{now_str}.pdf"
-            csv_name = f"daily_production_report_{selected_date_str}_{now_str}.csv"
-            saved_pdf = push_pdf_to_github(pdf_bytes, pdf_name, weekly=False)
-            saved_csv = push_csv_to_github(edited_df[["Product name"]+brand_names+["Already Made","Total"]], csv_name)
-            if not (saved_pdf and saved_csv):
-                st.warning("The report was generated, but saving the PDF or its data failed. Download your PDF below.")
-            st.download_button("📄 Download Production Report PDF", pdf_bytes, file_name=pdf_name, mime="application/pdf")
+        if st.button("Generate & Save Production Report PDF", type='primary'):
+            generate_and_save(edited_df, brand_names, selected_date, bulk_toggles, 'daily_result')
+        report_download('daily_result')
 
 # ----------------- TAB 2: History -----------------
 with tab2:
-    st.subheader("Previous Production Reports")
-
-    colh1, colh2 = st.columns(2)
-
-    # ----- Daily -----
-    with colh1:
-        st.markdown("**Daily Reports**")
-        refresh_daily = st.button("🔄 Refresh Daily History")
-        if "history_daily" not in st.session_state or refresh_daily:
-            st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
-
-        daily_files = st.session_state.get("history_daily", []) or []
-        daily_search = st.text_input("Search daily (yyyy-mm-dd or text)", key="daily_search")
-        if daily_search:
-            daily_files = [f for f in daily_files if daily_search.lower() in f["name"].lower()]
-
-        groups = {}
-        for f in daily_files:
-            key = month_group_key(f["name"])
-            groups.setdefault(key, []).append(f)
-
-        sorted_groups = sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
-        today_dt = datetime.now(LOCAL_TZ)
-        current_key = (today_dt.year, today_dt.month)
-
-        if not sorted_groups:
-            st.info("No daily reports found.")
-        else:
-            for (y, m), files in sorted_groups:
-                label = f"{month_label(y, m)} ({len(files)})"
-                expanded = ((y, m) == current_key)
-
-                with st.expander(label, expanded=expanded):
-
-                    def ts(f):
-                        d, t = parse_daily_filename(f["name"])
-                        try:
-                            return datetime.strptime(f"{d} {t}", "%Y-%m-%d %H-%M-%S") if d and t else datetime.min
-                        except Exception:
-                            return datetime.min
-                    files_sorted = sorted(files, key=ts, reverse=True)
-
-                    for f in files_sorted:
-                        c1, c2 = st.columns([0.8, 0.2])
-                        with c1:
-                            st.link_button(human_label_from_filename(f["name"]), f["download_url"], width='stretch')
-                        with c2:
-                            confirm = st.checkbox("Confirm", key=f"confirm_daily_{f['name']}")
-                            if st.button("🗑 Delete", key=f"del_daily_{f['name']}", type="secondary", disabled=not confirm, width='stretch'):
-                                pdf_path = f"{GITHUB_DAILY_PDF}/{f['name']}"
-                                csv_name = f['name'].replace(".pdf", ".csv")
-                                csv_path = f"{GITHUB_DAILY_CSV}/{csv_name}"
-                                ok_pdf = delete_file_from_github(pdf_path, "Delete daily report PDF")
-                                ok_csv = delete_file_from_github(csv_path, "Delete paired daily CSV")
-                                if ok_pdf:
-                                    st.success("Deleted.")
-                                    st.session_state["history_daily"] = list_files_from_github(GITHUB_DAILY_PDF)
-                                    st.rerun()
-                                else:
-                                    st.error("Failed to delete report. Check your GitHub token/permissions.")
-
-    # ----- Weekly -----
-    with colh2:
-        st.markdown("**Weekly Reports**")
-        refresh_weekly = st.button("🔄 Refresh Weekly History")
-        if "history_weekly" not in st.session_state or refresh_weekly:
-            st.session_state["history_weekly"] = list_files_from_github(GITHUB_WEEKLY_PDF)
-
-        weekly_files = st.session_state.get("history_weekly", []) or []
-        weekly_search = st.text_input("Search weekly (yyyy-mm-dd or text)", key="weekly_search")
-        if weekly_search:
-            weekly_files = [f for f in weekly_files if weekly_search.lower() in f["name"].lower()]
-
-        if not weekly_files:
-            st.info("No weekly reports found.")
-        else:
-            def wts(f):
-                n = f["name"].replace("weekly_summary_", "").replace(".pdf", "")
-                try:
-                    rng, tm = n.rsplit("_", 1)
-                    _start, _, end = rng.partition("_to_")
-                    dt = datetime.strptime(end + " " + tm, "%Y-%m-%d %H-%M-%S")
-                    return dt
-                except Exception:
-                    return datetime.min
-            weekly_sorted = sorted(weekly_files, key=wts, reverse=True)
-
-            for f in weekly_sorted:
-                c1, c2 = st.columns([0.8, 0.2])
-                with c1:
-                    st.link_button(weekly_pretty_label(f["name"]), f["download_url"], width='stretch')
-                with c2:
-                    confirm = st.checkbox("Confirm", key=f"confirm_weekly_{f['name']}")
-                    if st.button("🗑 Delete", key=f"del_weekly_{f['name']}", type="secondary", disabled=not confirm, width='stretch'):
-                        pdf_path = f"{GITHUB_WEEKLY_PDF}/{f['name']}"
-                        ok_pdf = delete_file_from_github(pdf_path, "Delete weekly summary PDF")
-                        if ok_pdf:
-                            st.success("Deleted.")
-                            st.session_state["history_weekly"] = list_files_from_github(GITHUB_WEEKLY_PDF)
-                            st.rerun()
-                        else:
-                            st.error("Failed to delete weekly summary. Check your GitHub token/permissions.")
+    st.subheader('Saved reports')
+    st.caption('Find a report to open its PDF or reuse its quantities with the current recipes.')
+    if st.button('Refresh history'):
+        st.session_state.pop('history_daily', None)
+        st.session_state.pop('history_weekly', None)
+    if 'history_daily' not in st.session_state:
+        st.session_state['history_daily'] = list_files_from_github(GITHUB_DAILY_PDF)
+    if 'history_weekly' not in st.session_state:
+        st.session_state['history_weekly'] = list_files_from_github(GITHUB_WEEKLY_PDF)
+    history_type = st.radio('Report type', ['Daily reports', 'Weekly summaries'], horizontal=True)
+    is_daily = history_type == 'Daily reports'
+    selected = report_picker(st.session_state['history_daily' if is_daily else 'history_weekly'],
+        'history_daily_picker' if is_daily else 'history_weekly_picker', is_daily)
+    if selected:
+        filename = selected['name']
+        st.link_button('Open saved PDF', selected['download_url'])
+        if is_daily:
+            rerun_editor(filename)
+        with st.expander('Delete this report'):
+            confirmed = st.checkbox('Delete the selected report and its saved data', key='confirm_'+filename)
+            if st.button('Delete report', disabled=not confirmed, key='delete_'+filename):
+                folder = GITHUB_DAILY_PDF if is_daily else GITHUB_WEEKLY_PDF
+                ok = delete_file_from_github(f'{folder}/{filename}', 'Delete selected report')
+                if ok and is_daily:
+                    ok = delete_file_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}", 'Delete paired report data')
+                if ok:
+                    st.session_state.pop('history_daily' if is_daily else 'history_weekly', None)
+                    st.session_state.pop('rerun_loaded', None)
+                    st.rerun()
+                else:
+                    st.error('Could not fully delete the report. Refresh history and try again.')
 
 # ----------------- TAB 3: Weekly Summary -----------------
 with tab3:
@@ -364,7 +389,7 @@ with tab3:
 
     # ---- From existing reports ----
     with tabs_week[0]:
-        st.caption("Pick a week, then choose daily reports in that range — I’ll fetch their paired CSVs automatically.")
+        st.caption("Choose the production runs to include. If you select an original and its reruns, only the latest selected version counts. Older test reports saved separately must be deselected manually.")
 
         today = date.today()
         default_start = today - timedelta(days=today.weekday())   # Monday
@@ -406,24 +431,33 @@ with tab3:
         )
 
         if selected_reports:
-            dfs, missing = [], []
+            records, missing = [], []
             for n in selected_reports:
                 base = n.replace(".pdf", ".csv")
                 csv_path = f"{GITHUB_DAILY_CSV}/{base}"
-                df = fetch_csv_from_github(csv_path)
+                try:
+                    df = fetch_csv_from_github(csv_path)
+                except ValueError as error:
+                    st.error(str(error))
+                    st.stop()
                 if df is None:
                     missing.append(base)
                     continue
-                try:
-                    dfs.append(historical_summary(df))
-                except ValueError as error:
-                    st.error(f"{base}: {error}")
-                    st.stop()
+                records.append((n, df))
 
             if missing:
                 st.error("Missing CSV for:\n\n- " + "\n- ".join(missing))
                 st.stop()
 
+            try:
+                chosen, skipped = latest_selected_runs(records)
+                dfs = [historical_summary(frame) for _, frame in chosen]
+            except ValueError as error:
+                st.error(str(error))
+                st.stop()
+            if skipped:
+                st.info('Selected versions of the same run were counted once, using the latest selected version. Omitted: '
+                        + ', '.join(human_label_from_filename(n) for n in skipped))
             if dfs:
                 merged = pd.concat(dfs, ignore_index=True)
                 weekly_df = merged.groupby("Product name", as_index=False).sum(numeric_only=True)
