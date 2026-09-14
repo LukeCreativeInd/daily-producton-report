@@ -19,7 +19,7 @@ bulk_sections = [
     {"title": "Fettuccine Order", "custom_type": "pasta_trays",
      "pasta_name": "Fettuccine", "pasta_per_meal": 85.32, "oil_per_meal": 0.85,
      "pasta_per_tray": 2000, "water_per_tray": 4500,
-     "show_oil": True, "show_raw_pasta": False,
+     "show_oil": True, "show_raw_pasta": True,
      "meals": ["Creamy Fettuccine"]},
 
     # Rice is now steamed in oven trays: 2kg rice + 3kg water per tray
