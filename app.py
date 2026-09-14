@@ -10,6 +10,12 @@ from zoneinfo import ZoneInfo
 
 # ---------- Page ----------
 st.set_page_config(page_title="Production Report", layout="wide")
+st.markdown("""<style>
+.block-container {max-width: 1280px; padding-top: 2.2rem; padding-bottom: 3rem;}
+[data-testid="stMetric"] {border: 1px solid rgba(128,128,128,.22); border-radius: 10px; padding: .8rem 1rem;}
+[data-testid="stMetricValue"] {font-size: 1.8rem;}
+[data-testid="stTabs"] [role="tab"] {padding: .6rem 1rem; font-weight: 600;}
+</style>""", unsafe_allow_html=True)
 st.title("Production Report")
 st.caption("Plan meal quantities, prepare kitchen sheets and revisit saved production runs.")
 
@@ -187,48 +193,87 @@ def report_download(result_key):
         st.download_button('Download generated PDF', pdf, file_name=name, mime='application/pdf', key=result_key+'_download')
 
 
-def report_picker(files, prefix, daily=True):
-    if not files:
-        st.info('No reports found.')
-        return None
-    files = sorted(files, key=lambda f: f['name'], reverse=True)
-    if daily:
-        months = sorted({month_group_key(f['name']) for f in files}, reverse=True)
-        month = st.selectbox('Month', months, format_func=lambda v: month_label(*v), key=prefix+'_month')
-        files = [f for f in files if month_group_key(f['name']) == month]
-    search = st.text_input('Find a report', placeholder='Date or part of the report name', key=prefix+'_search')
+def load_rerun(filename):
+    """Load before rendering widgets, then take the user to the report workspace."""
+    try:
+        frame = fetch_csv_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}")
+        if frame is None:
+            raise ValueError('The PDF is available, but its saved quantities are missing. This report cannot be rerun automatically.')
+        restored = restore_run(frame, filename)
+    except ValueError as error:
+        st.session_state['history_error'] = str(error)
+        return
+    for state_key in list(st.session_state):
+        if state_key.startswith('rerun_'):
+            del st.session_state[state_key]
+    st.session_state.pop('history_error', None)
+    st.session_state['rerun_loaded'] = (filename, restored)
+    st.session_state['main_tab'] = 'Production Report'
+
+
+def start_new_report():
+    for state_key in list(st.session_state):
+        if state_key.startswith('rerun_') or state_key in ('daily_result', 'editable_table_daily', 'clean_eats', 'made_active'):
+            del st.session_state[state_key]
+    for recipe in BULK_RECIPES:
+        st.session_state['bulk_'+recipe] = False
+    st.session_state['main_tab'] = 'Production Report'
+
+
+def history_list(files, prefix, daily=True):
+    search = st.text_input('Find a report', placeholder='Search by date or report name', key=prefix+'_search')
     formatter = human_label_from_filename if daily else weekly_pretty_label
-    files = [f for f in files if search.casefold() in (f['name']+' '+formatter(f['name'])).casefold()]
+    files = [f for f in sorted(files, key=lambda f: f['name'], reverse=True)
+             if search.casefold() in (f['name']+' '+formatter(f['name'])).casefold()]
     if not files:
-        st.info('No reports match this search.')
-        return None
-    names = [f['name'] for f in files]
-    selected = st.selectbox('Report', names, format_func=formatter, key=prefix+'_selection')
-    return next(f for f in files if f['name']==selected)
+        st.info('No reports match this search.' if search else 'No reports saved yet.')
+        return
+    groups = {}
+    for f in files:
+        if daily:
+            group = month_group_key(f['name'])
+        else:
+            try:
+                dt = datetime.strptime(f['name'].removeprefix('weekly_summary_')[:10], '%Y-%m-%d')
+                group = (dt.year, dt.month)
+            except ValueError:
+                group = (-1, -1)
+        groups.setdefault(group, []).append(f)
+    for index, group in enumerate(sorted(groups, reverse=True)):
+        with st.expander(f"{month_label(*group)} · {len(groups[group])} {'report' if len(groups[group]) == 1 else 'reports'}", expanded=index == 0 or bool(search)):
+            for f in groups[group]:
+                filename = f['name']
+                columns = st.columns([7, 1.5, 1] if daily else [8.5, 1], vertical_alignment='center')
+                with columns[0]:
+                    st.link_button(formatter(filename), f['download_url'], width='stretch')
+                if daily:
+                    with columns[1]:
+                        st.button('Rerun', key='load_'+filename, on_click=load_rerun, args=(filename,), width='stretch',
+                                  help='Load these quantities into the Production Report tab using the current recipes.')
+                with columns[-1]:
+                    with st.popover('•••', help='Report actions'):
+                        st.caption(formatter(filename))
+                        confirmed = st.checkbox('Delete this report and its saved data', key='confirm_'+filename)
+                        if st.button('Delete report', disabled=not confirmed, key='delete_'+filename):
+                            folder = GITHUB_DAILY_PDF if daily else GITHUB_WEEKLY_PDF
+                            ok = delete_file_from_github(f'{folder}/{filename}', 'Delete selected report')
+                            if ok and daily:
+                                ok = delete_file_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}", 'Delete paired report data')
+                            if ok:
+                                st.session_state.pop('history_daily' if daily else 'history_weekly', None)
+                                st.rerun()
+                            else:
+                                st.error('Could not fully delete the report. Refresh history and try again.')
 
 
 def rerun_editor(filename):
     key = 'rerun_'+filename
-    if st.button('Load quantities for rerun', key=key+'_load', type='primary'):
-        # Always read afresh on explicit load; do not reuse another report's editor state.
-        st.session_state.pop('rerun_loaded', None)
-        try:
-            frame = fetch_csv_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}")
-            if frame is None:
-                raise ValueError('The PDF is available, but its saved quantities are missing. This report cannot be rerun automatically.')
-            restored = restore_run(frame, filename)
-            st.session_state['rerun_loaded'] = (filename, restored)
-            for state_key in list(st.session_state):
-                if state_key.startswith(key) and state_key != key+'_load':
-                    del st.session_state[state_key]
-        except ValueError as error:
-            st.error(str(error))
     loaded = st.session_state.get('rerun_loaded')
     if not loaded or loaded[0] != filename:
         return
     frame, brands, settings, issues = loaded[1]
     production_date = date.fromisoformat(parse_run_name(filename)[0])
-    st.subheader('Review this rerun')
+    st.subheader('Review meal quantities')
     st.caption(f"Production date: {production_date:%d/%m/%Y}. Uses today's recipes and layout. The original report stays available.")
     reviewed = True
     if issues:
@@ -238,11 +283,15 @@ def rerun_editor(filename):
     old_settings = settings['bulk_prepared'] if settings else dict.fromkeys(BULK_RECIPES, False)
     with st.expander('Already-prepared recipes', expanded=settings is None):
         st.caption('Tick only recipes already prepared in bulk. Their recipe ingredients will be set to zero.')
-        toggles = {name: st.checkbox(name, value=old_settings[name], key=key+'_bulk_'+name) for name in BULK_RECIPES}
+        toggles = {}
+        recipe_columns = st.columns(2)
+        for index, name in enumerate(BULK_RECIPES):
+            with recipe_columns[index % 2]:
+                toggles[name] = st.checkbox(name, value=old_settings[name], key=key+'_bulk_'+name)
         if settings is None:
             st.warning('This older report did not save these four settings. Check them before generating.')
             reviewed = st.checkbox('I have checked the preparation settings', key=key+'_settings_checked') and reviewed
-    edited = st.data_editor(frame, disabled=['Product name'], num_rows='fixed', width='stretch',
+    edited = st.data_editor(frame, disabled=['Product name'], num_rows='fixed', width='stretch', hide_index=True, height=520,
         column_config={b: st.column_config.NumberColumn(min_value=0, step=1, default=0) for b in [*brands, 'Already Made']}, key=key+'_editor')
     try:
         edited = daily_summary(edited, brands)
@@ -260,126 +309,124 @@ def rerun_editor(filename):
 
 
 # ---------- Tabs ----------
-tab1, tab2, tab3 = st.tabs(["New Report", "Document History", "Weekly Summary"])
+tab1, tab2, tab3 = st.tabs(["Production Report", "Document History", "Weekly Summary"], key="main_tab", on_change="rerun")
 
 # ----------------- TAB 1: Daily Flow -----------------
 with tab1:
-    st.subheader("1. Upload meal quantities")
-    st.caption("Use the cleaned Clean Eats and/or Made Active files. To reuse saved quantities, open Document History.")
-    uploaded_files = {}
-    col1, col2 = st.columns(2)
-    with col1: uploaded_files['Clean Eats'] = st.file_uploader("Clean Eats File", type=["csv", "xlsx"], key="clean_eats")
-    with col2: uploaded_files['Made Active'] = st.file_uploader("Made Active File", type=["csv", "xlsx"], key="made_active")
-
-    st.subheader("2. Production date")
-    selected_date = st.date_input("Production Date", value=datetime.now(LOCAL_TZ))
-    selected_date_str = selected_date.strftime('%Y-%m-%d')
-
-    with st.expander('Already-prepared recipes (optional)'):
-        st.caption('Tick only recipes already prepared in bulk. Their recipe ingredients will be set to zero.')
-        bulk_toggles = {r: st.checkbox(r, key=f"bulk_{r}") for r in BULK_RECIPES}
-
-    # --- Parse uploads (optional) ---
-    dataframes, brand_names = [], []
-    any_uploaded = any(uploaded_files.values())
-    if any_uploaded:
-        for brand, f in uploaded_files.items():
-            if not f: continue
-            try:
-                df = pd.read_csv(f) if f.name.endswith(".csv") else pd.read_excel(f)
-            except Exception as e:
-                st.error(f"{brand} failed to read: {e}")
-                st.stop()
-            try:
-                df = normalize_upload(df)
-            except ValueError as error:
-                st.error(f"{brand}: {error}")
-                st.stop()
-            dataframes.append(df); brand_names.append(brand)
+    loaded = st.session_state.get('rerun_loaded')
+    if loaded:
+        with st.container(border=True):
+            heading, action = st.columns([4, 1], vertical_alignment='center')
+            with heading:
+                st.markdown('**Rerun a saved production report**')
+                st.caption(human_label_from_filename(loaded[0]) + ' · Current recipes · Saved quantities')
+            with action:
+                st.button('Start a new report', on_click=start_new_report, width='stretch')
+        rerun_editor(loaded[0])
     else:
-        st.info("Upload at least one production file to generate a daily report.")
+        st.subheader("1. Upload meal quantities")
+        st.caption("Use the cleaned Clean Eats and/or Made Active files. To reuse saved quantities, open Document History.")
+        uploaded_files = {}
+        col1, col2 = st.columns(2)
+        with col1: uploaded_files['Clean Eats'] = st.file_uploader("Clean Eats File", type=["csv", "xlsx"], key="clean_eats")
+        with col2: uploaded_files['Made Active'] = st.file_uploader("Made Active File", type=["csv", "xlsx"], key="made_active")
 
-    # --- Editable merged summary ---
-    if dataframes:
-        # Only include the current production meal options in the summary table.
-        # This prevents POS materials, packs, memberships, or other non-meal products
-        # from appearing in the production report.
-        all_products = SUMMARY_MEAL_ORDER
-        rows = []
-        for p in all_products:
-            row = {"Product name": p, "Already Made": 0}
-            for i, df in enumerate(dataframes):
-                row[brand_names[i]] = int(df.loc[df["Product name"]==p,"Quantity"].sum()) if p in df["Product name"].values else 0
-            rows.append(row)
-        summary_df = pd.DataFrame(rows)
-        if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
+        st.subheader("2. Production date")
+        selected_date = st.date_input("Production Date", value=datetime.now(LOCAL_TZ))
+        selected_date_str = selected_date.strftime('%Y-%m-%d')
 
-        st.subheader("3. Review meal quantities")
-        edited_df = st.data_editor(
-            summary_df,
-            num_rows="fixed",
-            width='stretch',
-            disabled=["Product name"],
-            column_config={b: st.column_config.NumberColumn(width=100, min_value=0, step=1, default=0)
-                           for b in (brand_names+["Already Made"])},
-            key="editable_table_daily"
-        )
-        try:
-            edited_df = daily_summary(edited_df, brand_names)
-        except ValueError as error:
-            st.error(str(error))
-            st.stop()
-        st.caption("Blank quantity cells are treated as 0. Already Made applies to Clean Eats only; Made Active demand is not reduced.")
+        with st.expander('Already-prepared recipes (optional)'):
+            st.caption('Tick only recipes already prepared in bulk. Their recipe ingredients will be set to zero.')
+            bulk_toggles = {r: st.checkbox(r, key=f"bulk_{r}") for r in BULK_RECIPES}
 
-        totals_overview(edited_df, brand_names)
-        with st.expander('View final meal totals'):
-            st.dataframe(edited_df[['Product name']+brand_names+['Already Made','Total']], width='stretch')
+        # --- Parse uploads (optional) ---
+        dataframes, brand_names = [], []
+        any_uploaded = any(uploaded_files.values())
+        if any_uploaded:
+            for brand, f in uploaded_files.items():
+                if not f: continue
+                try:
+                    df = pd.read_csv(f) if f.name.endswith(".csv") else pd.read_excel(f)
+                except Exception as e:
+                    st.error(f"{brand} failed to read: {e}")
+                    st.stop()
+                try:
+                    df = normalize_upload(df)
+                except ValueError as error:
+                    st.error(f"{brand}: {error}")
+                    st.stop()
+                dataframes.append(df); brand_names.append(brand)
+        else:
+            st.info("Upload at least one production file to generate a daily report.")
 
-        meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
-        pending = pending_recipe_names(meal_totals)
-        if pending:
-            st.warning(
-                "You can generate this report. Meal counts are included for "
-                + ", ".join(pending)
-                + ", but their ingredient and preparation quantities are not included until their recipes are added."
+        # --- Editable merged summary ---
+        if dataframes:
+            # Only include the current production meal options in the summary table.
+            # This prevents POS materials, packs, memberships, or other non-meal products
+            # from appearing in the production report.
+            all_products = SUMMARY_MEAL_ORDER
+            rows = []
+            for p in all_products:
+                row = {"Product name": p, "Already Made": 0}
+                for i, df in enumerate(dataframes):
+                    row[brand_names[i]] = int(df.loc[df["Product name"]==p,"Quantity"].sum()) if p in df["Product name"].values else 0
+                rows.append(row)
+            summary_df = pd.DataFrame(rows)
+            if brand_names: summary_df = summary_df[["Product name"]+brand_names+["Already Made"]]
+
+            st.subheader("3. Review meal quantities")
+            edited_df = st.data_editor(
+                summary_df,
+                num_rows="fixed",
+                width='stretch', hide_index=True, height=520,
+                disabled=["Product name"],
+                column_config={b: st.column_config.NumberColumn(width=100, min_value=0, step=1, default=0)
+                               for b in (brand_names+["Already Made"])},
+                key="editable_table_daily"
             )
-        if st.button("Generate & Save Production Report PDF", type='primary'):
-            generate_and_save(edited_df, brand_names, selected_date, bulk_toggles, 'daily_result')
-        report_download('daily_result')
+            try:
+                edited_df = daily_summary(edited_df, brand_names)
+            except ValueError as error:
+                st.error(str(error))
+                st.stop()
+            st.caption("Blank quantity cells are treated as 0. Already Made applies to Clean Eats only; Made Active demand is not reduced.")
+
+            totals_overview(edited_df, brand_names)
+            with st.expander('View final meal totals'):
+                st.dataframe(edited_df[['Product name']+brand_names+['Already Made','Total']], width='stretch')
+
+            meal_totals = dict(zip(edited_df["Product name"].str.upper(), edited_df["Total"]))
+            pending = pending_recipe_names(meal_totals)
+            if pending:
+                st.warning(
+                    "You can generate this report. Meal counts are included for "
+                    + ", ".join(pending)
+                    + ", but their ingredient and preparation quantities are not included until their recipes are added."
+                )
+            if st.button("Generate & Save Production Report PDF", type='primary'):
+                generate_and_save(edited_df, brand_names, selected_date, bulk_toggles, 'daily_result')
+            report_download('daily_result')
 
 # ----------------- TAB 2: History -----------------
 with tab2:
-    st.subheader('Saved reports')
-    st.caption('Find a report to open its PDF or reuse its quantities with the current recipes.')
-    if st.button('Refresh history'):
-        st.session_state.pop('history_daily', None)
-        st.session_state.pop('history_weekly', None)
+    title_column, refresh_column = st.columns([5, 1], vertical_alignment='center')
+    with title_column:
+        st.subheader('Saved reports')
+    with refresh_column:
+        if st.button('Refresh history', width='stretch'):
+            st.session_state.pop('history_daily', None)
+            st.session_state.pop('history_weekly', None)
+    st.caption('Click a report to open its PDF. Rerun loads its quantities into the Production Report tab.')
     if 'history_daily' not in st.session_state:
         st.session_state['history_daily'] = list_files_from_github(GITHUB_DAILY_PDF)
     if 'history_weekly' not in st.session_state:
         st.session_state['history_weekly'] = list_files_from_github(GITHUB_WEEKLY_PDF)
-    history_type = st.radio('Report type', ['Daily reports', 'Weekly summaries'], horizontal=True)
+    if st.session_state.get('history_error'):
+        st.error(st.session_state['history_error'])
+    history_type = st.radio('Report type', ['Daily reports', 'Weekly summaries'], horizontal=True, label_visibility='collapsed')
     is_daily = history_type == 'Daily reports'
-    selected = report_picker(st.session_state['history_daily' if is_daily else 'history_weekly'],
-        'history_daily_picker' if is_daily else 'history_weekly_picker', is_daily)
-    if selected:
-        filename = selected['name']
-        st.link_button('Open saved PDF', selected['download_url'])
-        if is_daily:
-            rerun_editor(filename)
-        with st.expander('Delete this report'):
-            confirmed = st.checkbox('Delete the selected report and its saved data', key='confirm_'+filename)
-            if st.button('Delete report', disabled=not confirmed, key='delete_'+filename):
-                folder = GITHUB_DAILY_PDF if is_daily else GITHUB_WEEKLY_PDF
-                ok = delete_file_from_github(f'{folder}/{filename}', 'Delete selected report')
-                if ok and is_daily:
-                    ok = delete_file_from_github(f"{GITHUB_DAILY_CSV}/{filename.replace('.pdf', '.csv')}", 'Delete paired report data')
-                if ok:
-                    st.session_state.pop('history_daily' if is_daily else 'history_weekly', None)
-                    st.session_state.pop('rerun_loaded', None)
-                    st.rerun()
-                else:
-                    st.error('Could not fully delete the report. Refresh history and try again.')
+    history_list(st.session_state['history_daily' if is_daily else 'history_weekly'],
+                 'daily_history' if is_daily else 'weekly_history', is_daily)
 
 # ----------------- TAB 3: Weekly Summary -----------------
 with tab3:
