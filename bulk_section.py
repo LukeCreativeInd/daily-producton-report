@@ -80,7 +80,7 @@ bulk_sections = [
      "meals": ["Sunday Roast Lamb"]},
 
     {"title": "Creamy Fettuccine", "batch_size": 0,
-     "ingredients": {"Steamed Broccoli": 40},
+     "ingredients": {"Steamed Broccoli": 36},
      "meals": ["Creamy Fettuccine"]},
 
     # Updated salt to 0.5
