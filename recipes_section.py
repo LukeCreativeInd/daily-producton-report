@@ -72,7 +72,7 @@ meal_recipes = {
     "Chicken and Broccoli Pasta": {
         "batch": 0,
         "ingredients": {
-            "Chicken": 130, "Penne": 59, "Broccoli": 40
+            "Chicken": 130, "Penne": 59, "Broccoli": 36
         }
     },
     "Butter Chicken": {
