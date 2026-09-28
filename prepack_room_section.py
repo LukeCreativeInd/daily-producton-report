@@ -207,7 +207,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Chow Mein", 230, "BEEF CHOW MEIN"),
         ("Shepherd's Pie", 210, "SHEPHERD'S PIE"),
         ("Burrito Bowl", 130, "BEEF BURRITO BOWL"),
-        ("Mixed Burger Sauce", 160, "SMASHED BURGER"),
+        ("Meat Burger Sauce", 160, "SMASHED BURGER"),
     ]
 
     block_h = (2 + len(meat_to_get_ready)) * ch + pad
