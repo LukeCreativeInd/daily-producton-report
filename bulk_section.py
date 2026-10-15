@@ -76,7 +76,7 @@ bulk_sections = [
      "meals": ["Roasted Lemon Chicken & Potatoes"]},
 
     {"title": "Sunday Roast Vegetables", "batch_size": 0,
-     "ingredients": {"Roast Diced Pumpkin": 82, "Roast Carrot Discs": 54},
+     "ingredients": {"Roast Diced Pumpkin": 68, "Roast Carrot Discs": 45},
      "meals": ["Sunday Roast Lamb"]},
 
     {"title": "Creamy Fettuccine", "batch_size": 0,
