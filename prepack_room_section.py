@@ -158,7 +158,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         # removed from print: ("Burrito Sauce", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
         ("Chunky Salsa", None, None),
-        ("Gravy Sauce", 75, "SUNDAY ROAST LAMB"),
+        ("Gravy Sauce", 63, "SUNDAY ROAST LAMB"),
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
