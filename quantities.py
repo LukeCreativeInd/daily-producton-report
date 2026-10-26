@@ -1,7 +1,7 @@
 """Validate quantities at upload, after editing, and before PDF rendering."""
 import math
 import pandas as pd
-from meal_catalog import ACTIVE_BRANDS, SUMMARY_MEAL_ORDER
+from meal_catalog import ACTIVE_BRANDS, SUMMARY_MEAL_ORDER, canonical_meal_name
 
 
 def quantity(value, label, *, allow_negative=False):
@@ -32,7 +32,7 @@ def active_rows(frame):
     if 'Product name' not in frame:
         raise ValueError("Missing 'Product name' column.")
     frame = frame.copy()
-    frame['Product name'] = frame['Product name'].astype('string').str.strip()
+    frame['Product name'] = frame['Product name'].astype('string').map(lambda name: canonical_meal_name(name) if pd.notna(name) else name)
     return frame[frame['Product name'].isin(SUMMARY_MEAL_ORDER)].copy()
 
 
@@ -87,4 +87,8 @@ def historical_summary(frame):
 
 
 def normalize_meal_totals(totals):
-    return {str(name).upper(): quantity(value, str(name)) for name, value in totals.items()}
+    normalized = {}
+    for name, value in totals.items():
+        key = canonical_meal_name(name).upper()
+        normalized[key] = normalized.get(key, 0) + quantity(value, str(name))
+    return normalized

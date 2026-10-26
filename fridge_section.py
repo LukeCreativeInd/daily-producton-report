@@ -86,7 +86,7 @@ def draw_fridge_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=
     pdf.ln(ch)
 
     pdf.set_font("Arial", "", 8)
-    parma_amt = meal_totals.get("NAKED CHICKEN PARMA", 0)
+    parma_amt = meal_totals.get("CHICKEN PARMA", 0)
 
     for ing, qty in [("Napoli Sauce", 50), ("Mozzarella Cheese", 40)]:
         total = qty * parma_amt

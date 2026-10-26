@@ -55,20 +55,11 @@ bulk_sections = [
  "ingredients": {"Lamb Shoulder": 148.7, "Oil": 1.8, "Oregano": 1.1, "Baking Soda": 2.4},
  "meals": ["Lamb Souvlaki"]},
 
-    # Custom Sweet Potato Mash logic (different per-meal grams by meal)
-    {"title": "Sweet Potato Mash", "custom_type": "sweet_potato_split",
-     "meals": {
-         "Shepherd's Pie": 197.94,
-         "Chicken with Sweet Potato and Beans": 171.55
-     },
-     # Base seasoning ratios per 200g sweet potato
-     "seasoning_per_200": {"Salt": 1, "White Pepper": 0.2}},
-
     # Renamed
     {"title": "Roasted Parma Potatoes", "custom_type": "roasted_potato_split",
      "max_batch_grams": 7500,
      "ingredients": {"Oil": 1.9, "Spices Mix": 1.9},
-     "meals": {"Naked Chicken Parma": 186, "Lamb Souvlaki": 173.6,
+     "meals": {"Chicken Parma": 186, "Lamb Souvlaki": 173.6,
                "Smashed Burger": 198.4, "Sunday Roast Lamb": 124}},
 
     {"title": "Roasted Lemon Potatoes", "batch_ingredient": "Potatoes", "batch_size": 63,
@@ -278,49 +269,6 @@ def draw_bulk_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, start_y=No
             heights[col] = pdf.get_y() + pad
             continue
 
-        # Custom Sweet Potato Mash rendering
-        if sec.get("custom_type") == "sweet_potato_split":
-            # rows: title + headers + 3 lines (Sweet Potato, Salt, White Pepper)
-            block_h = (2 + 3) * ch + pad
-            heights, col = ensure_space(heights, block_h, title1)
-            x, y = xpos[col], heights[col]
-            pdf.set_xy(x, y)
-            pdf.set_font("Arial", "B", 11)
-            pdf.set_fill_color(230, 230, 230)
-            pdf.cell(col_w, ch, sec["title"], ln=1, fill=True)
-
-            table_headers(x)
-
-            # Hidden correct total potato grams from per-meal values per meal
-            total_potato = 0
-            for meal_name, per_meal in sec["meals"].items():
-                n = int(meal_totals.get(meal_name.upper(), 0) or 0)
-                total_potato += (per_meal or 0) * n
-
-            # Allocate total_potato by recipe ratios (200 / 1 / 0.5)
-            sweet_qty = 200.0
-            salt_qty = float(sec.get("seasoning_per_200", {}).get("Salt", 0) or 0)
-            pep_qty = float(sec.get("seasoning_per_200", {}).get("White Pepper", 0) or 0)
-            denom = sweet_qty + salt_qty + pep_qty
-
-            def pct(v):
-                return (v / denom) if denom else 0.0
-
-            def ratio_row(label, qty, pct_val, total_alloc):
-                pdf.set_x(x)
-                pdf.cell(col_w * 0.4, ch, str(label)[:20], 1)
-                pdf.cell(col_w * 0.15, ch, fmt_qty(qty), 1)
-                pdf.cell(col_w * 0.15, ch, f"{pct_val * 100:.1f}%", 1)
-                pdf.cell(col_w * 0.15, ch, fmt_int_up(total_alloc), 1)
-                pdf.cell(col_w * 0.15, ch, "", 1)
-                pdf.ln(ch)
-
-            ratio_row("Sweet Potato", sweet_qty, pct(sweet_qty), total_potato * pct(sweet_qty))
-            ratio_row("Salt", salt_qty, pct(salt_qty), total_potato * pct(salt_qty))
-            ratio_row("White Pepper", pep_qty, pct(pep_qty), total_potato * pct(pep_qty))
-
-            heights[col] = pdf.get_y() + pad
-            continue
         ingredients = sec.get("ingredients", {})
         hide = set(sec.get("hide_ingredients", []))
         fold_into = sec.get("fold_hidden_into")

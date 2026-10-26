@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from uuid import uuid4
 import pandas as pd
-from meal_catalog import ACTIVE_BRANDS, SUMMARY_MEAL_ORDER
+from meal_catalog import ACTIVE_BRANDS, SUMMARY_MEAL_ORDER, canonical_meal_name
 from quantities import daily_summary, normalize_columns
 
 BULK_RECIPES = ['Spaghetti Bolognese', 'Beef Chow Mein', 'Beef Burrito Bowl', "Shepherd's Pie"]
@@ -48,7 +48,7 @@ def restore_run(frame, filename):
         raise ValueError('This report has no saved Clean Eats or Made Active quantities.')
     settings = read_settings(frame)
     data = normalize_columns(frame, [*brands, 'Already Made'])
-    data['Product name'] = data['Product name'].astype('string').str.strip()
+    data['Product name'] = data['Product name'].astype('string').map(lambda name: canonical_meal_name(name) if pd.notna(name) else name)
     if data['Product name'].isna().any() or data['Product name'].duplicated().any():
         raise ValueError('The saved data has missing or duplicate meal names. Review the original report.')
     excluded = data.loc[~data['Product name'].isin(SUMMARY_MEAL_ORDER), ['Product name', *brands, 'Already Made']]

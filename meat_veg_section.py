@@ -100,16 +100,10 @@ def draw_meat_veg_section(
         if not section:
             return 0
 
-        # Handle custom bulk sections (Sweet Potato Mash uses meal-specific per-meal grams)
+        # Handle combined roasted potatoes with meal-specific per-meal grams
         if section.get("custom_type") == "roasted_potato_split" and ingredient == "Roasted Potatoes":
             _, _, batches, per_batch = roasted_potato_requirements(meal_totals, section)
             return per_batch["Roasted Potatoes"] * batches
-        if section.get("custom_type") == "sweet_potato_split" and ingredient == "Sweet Potato":
-            total = 0
-            for meal_name, per in section.get("meals", {}).items():
-                total += (per or 0) * (meal_totals.get(meal_name.upper(), 0) or 0)
-            return total
-
         total_meals = sum(meal_totals.get(m.upper(), 0) for m in section.get("meals", []))
         qty = section.get("ingredients", {}).get(ingredient, 0)
         batch_size = section.get("batch_size", 0)
@@ -158,7 +152,7 @@ def draw_meat_veg_section(
         (
             "ITALIAN CHICKEN",
             sum_totals_recipe_ingredients(
-                ["Chicken with Sweet Potato and Beans", "Naked Chicken Parma"],
+                ["Chicken with Sweet Potato and Beans", "Chicken Parma"],
                 "Chicken",
                 multiplier=153,
             ),
@@ -220,7 +214,6 @@ def draw_meat_veg_section(
         ("LEMON POTATO", get_bulk_total("Roasted Lemon Potatoes", "Potatoes")),
         ("ROASTED PARMA POTATO", get_bulk_total("Roasted Parma Potatoes", "Roasted Potatoes")),
         ("THAI POTATOS", get_bulk_total("Roasted Thai Potatoes", "Potato")),
-        ("SWEET POTATO MASH", get_bulk_total("Sweet Potato Mash", "Sweet Potato")),
         ("SPINACH", get_total_from_chicken_mixing()),
         ("RED ONION", get_bulk_total("Lamb Onion Marinated", "Red Onion")),
         ("PARSLEY", get_bulk_total("Lamb Onion Marinated", "Parsley")),

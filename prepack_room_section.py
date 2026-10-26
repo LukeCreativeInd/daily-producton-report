@@ -154,7 +154,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Meatballs", 100, "BEEF MEATBALLS"),
         ("Lemon", 50, "ROASTED LEMON CHICKEN & POTATOES"),
         ("Mushroom", None, None),
-        ("Napoli Sauce", 40, "NAKED CHICKEN PARMA"),
+        ("Napoli Sauce", 40, "CHICKEN PARMA"),
         # removed from print: ("Burrito Sauce", 43, "BEEF BURRITO BOWL"),
         # printed combined row:
         ("Chunky Salsa", None, None),
@@ -238,7 +238,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     heights = group_init_heights()
 
     # Parma Cheese (cheese only)
-    parma_meals = meal_totals.get("NAKED CHICKEN PARMA", 0) or 0
+    parma_meals = meal_totals.get("CHICKEN PARMA", 0) or 0
     parma_rows = [("Mozzarella Cheese", 40, parma_meals)]
 
     block_h = (2 + len(parma_rows)) * ch + pad
@@ -280,6 +280,24 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
                          (str(mash_meals), .15), (str(mash_required), .20), (str(mash_bags), .18)]:
         pdf.cell(col_w * width, ch, value, 1)
     pdf.ln(ch)
+    heights[col] = pdf.get_y() + pad
+
+    # Prepared on separate bulk-cooking days: only the finished mash is needed here.
+    mash_rows = [
+        ("Chicken & Sweet Potato", 130, "CHICKEN WITH SWEET POTATO AND BEANS"),
+        ("Shepherds Pie", 150, "SHEPHERD'S PIE"),
+    ]
+    heights, col = ensure_space_in_group(heights, 4 * ch + pad, "Ingredients to Get Ready")
+    x = xpos[col]
+    pdf.set_xy(x, heights[col])
+    table_title(x, "Sweet Potato Mash")
+    table_headers(x, [("Meal", .46), ("Qty (g)", .17), ("Meals", .15), ("Total (g)", .22)])
+    for label, qty, meal_key in mash_rows:
+        meals = meal_totals.get(meal_key, 0)
+        pdf.set_x(x)
+        for value, width in [(label, .46), (str(qty), .17), (str(meals), .15), (str(qty * meals), .22)]:
+            pdf.cell(col_w * width, ch, value, 1)
+        pdf.ln(ch)
     heights[col] = pdf.get_y() + pad
 
     # Chicken Pesto Sundried
@@ -462,14 +480,14 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         heights[col] = pdf.get_y() + pad
 
     # Potatoes Cooked
-    parma_meals = get_meals("Naked Chicken Parma")
+    parma_meals = get_meals("Chicken Parma")
     lamb_souvlaki_meals = get_meals("Lamb Souvlaki")
     lemon_meals = get_meals("ROASTED LEMON CHICKEN & POTATOES", "ROASTED LEMON CHICKEN AND POTATOES")
 
     draw_cooked_check_table(
         "Potatoes Cooked",
         [
-            ("Naked Chicken Parma", parma_meals, 150),
+            ("Chicken Parma", parma_meals, 150),
             ("Lamb Souvlaki", lamb_souvlaki_meals, 140),
             ("Smashed Burger", get_meals("Smashed Burger"), 160),
             ("Sunday Roast Lamb", get_meals("Sunday Roast Lamb"), 100),
@@ -482,7 +500,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Italian Chicken",
         [
-            ("Naked Chicken Parma", parma_meals, 120),
+            ("Chicken Parma", parma_meals, 120),
             ("Chicken Sweet Potato", get_meals("CHICKEN WITH SWEET POTATO AND BEANS"), 120),
         ],
         include_total=True,
