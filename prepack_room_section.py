@@ -141,7 +141,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     # -------------------
     # Sauces/Mixes to Get Ready
     # -------------------
-    draw_group_heading("Sauces/Mixes to Get Ready", 9)
+    draw_group_heading("Sauces/Mixes to Get Ready", 10)
     heights = group_init_heights()
 
     # Chunky Salsa now serves Beef Burrito Bowl only.
@@ -159,6 +159,7 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         # printed combined row:
         ("Chunky Salsa", None, None),
         ("Gravy Sauce", 63, "SUNDAY ROAST LAMB"),
+        ("Moroccan Chickpeas", 180, "MOROCCAN CHICKEN"),
     ]
 
     block_h = (2 + len(sauces_to_get_ready)) * ch + pad
@@ -190,7 +191,13 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
             pdf.ln(ch)
             continue
 
-        amt = meal_totals.get(meal_key.upper(), 0) or 0
+        if sauce == "Moroccan Chickpeas":
+            # Preserve the meal-name fallbacks used by the former cooked-check row.
+            amt = next((meal_totals[key] or 0 for key in
+                        ("MOROCCAN CHICKEN", "MORROCAN CHICKEN", "MOROCCAN", "MORROCAN")
+                        if key in meal_totals), 0)
+        else:
+            amt = meal_totals.get(meal_key.upper(), 0) or 0
         total = qty * amt
         pdf.set_x(x)
         pdf.cell(col_w * 0.4, ch, sauce, 1)
@@ -287,17 +294,25 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         ("Chicken & Sweet Potato", 130, "CHICKEN WITH SWEET POTATO AND BEANS"),
         ("Shepherds Pie", 150, "SHEPHERD'S PIE"),
     ]
-    heights, col = ensure_space_in_group(heights, 4 * ch + pad, "Ingredients to Get Ready")
+    heights, col = ensure_space_in_group(heights, 5 * ch + pad, "Ingredients to Get Ready")
     x = xpos[col]
     pdf.set_xy(x, heights[col])
     table_title(x, "Sweet Potato Mash")
     table_headers(x, [("Meal", .46), ("Qty (g)", .17), ("Meals", .15), ("Total (g)", .22)])
+    sweet_mash_total = 0
     for label, qty, meal_key in mash_rows:
         meals = meal_totals.get(meal_key, 0)
+        sweet_mash_total += qty * meals
         pdf.set_x(x)
         for value, width in [(label, .46), (str(qty), .17), (str(meals), .15), (str(qty * meals), .22)]:
             pdf.cell(col_w * width, ch, value, 1)
         pdf.ln(ch)
+    pdf.set_x(x)
+    pdf.set_font("Arial", "B", 8)
+    pdf.cell(col_w * .78, ch, "TOTAL", 1)
+    pdf.cell(col_w * .22, ch, str(sweet_mash_total), 1)
+    pdf.ln(ch)
+    pdf.set_font("Arial", "", 8)
     heights[col] = pdf.get_y() + pad
 
     # Chicken Pesto Sundried
@@ -345,7 +360,17 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         pdf.set_xy(x, y)
 
         amt = meal_totals.get(meal_key.upper(), 0) or 0
-        batches = math.ceil((amt + extra) / divisor) if divisor else 1
+        if name in ("Pesto", "Thai"):
+            # Each tub holds at most 20kg of chicken and sauce combined.
+            mix_total = sum(qty * amt for _, qty in ingredients)
+            batches = math.ceil(mix_total / 20000) if mix_total else 0
+            # Printed component weights round up to whole grams; keep their
+            # combined displayed weight within the tub limit too.
+            while batches and sum(math.ceil(qty * amt / batches)
+                                  for _, qty in ingredients) > 20000:
+                batches += 1
+        else:
+            batches = math.ceil((amt + extra) / divisor) if divisor else 1
 
         table_title(x, name)
         table_headers(x, [("Ingredient", 0.22), ("Qty/Batch", 0.18), ("Amount", 0.18), ("Total", 0.21), ("Batches", 0.21)])
@@ -567,7 +592,6 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
     draw_cooked_check_table(
         "Pre Cooked",
         [
-            ("Moroccan", moroccan_meals, 180),
             ("Moroccan Chicken", moroccan_meals, 140),
         ],
         include_total=False,
