@@ -569,19 +569,19 @@ def draw_prepack_room_section(pdf, meal_totals, xpos, col_w, ch, pad, bottom, st
         include_total=False,
     )
 
-    # Cooked meatballs are supplied as 20 individual meatballs per bag.
+    # Cooked meatballs are supplied as 21 individual meatballs per bag.
     meatball_meals = get_meals("Beef Meatballs")
     meatball_units = 3 * meatball_meals
-    meatball_bags = (meatball_units + 19) // 20
+    meatball_bags = (meatball_units + 19) // 21
     heights, col = ensure_space_in_group(heights, 3 * ch + pad, "Prepack Cooked Ingredient Checks")
     x = xpos[col]
     pdf.set_xy(x, heights[col])
     table_title(x, "Cooked Meatballs")
     table_headers(x, [("Ingredient", .32), ("Meals", .16), ("Units", .14),
-                      ("Total", .18), ("Bags (20)", .20)])
+                      ("Total", .18), ("Bags (21)", .21)])
     pdf.set_x(x)
     for value, width in [("Meatballs", .32), (str(meatball_meals), .16), ("3", .14),
-                         (str(meatball_units), .18), (str(meatball_bags), .20)]:
+                         (str(meatball_units), .18), (str(meatball_bags), .21)]:
         pdf.cell(col_w * width, ch, value, 1)
     pdf.ln(ch)
     heights[col] = pdf.get_y() + pad
