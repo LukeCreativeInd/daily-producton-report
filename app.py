@@ -298,7 +298,7 @@ def rerun_editor(filename):
     except ValueError as error:
         st.error(str(error))
         return
-    st.caption('Already Made applies to Clean Eats only. Made Active demand is not reduced.')
+    st.caption('Already Made is deducted from Clean Eats first, then Made Active.')
     totals_overview(edited, brands)
     pending = pending_recipe_names(dict(zip(edited['Product name'].str.upper(), edited['Total'])))
     if pending:
@@ -389,7 +389,7 @@ with tab1:
             except ValueError as error:
                 st.error(str(error))
                 st.stop()
-            st.caption("Blank quantity cells are treated as 0. Already Made applies to Clean Eats only; Made Active demand is not reduced.")
+            st.caption("Blank quantity cells are treated as 0. Already Made is deducted from Clean Eats first, then Made Active.")
 
             totals_overview(edited_df, brand_names)
             with st.expander('View final meal totals'):
