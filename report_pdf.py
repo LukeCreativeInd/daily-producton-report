@@ -186,6 +186,7 @@ def draw_summary_section(pdf, df, brand_names, production_date):
         ("Family Lasagna", production_date + timedelta(days=27)),
         ("Beef Lasagna", production_date + timedelta(days=20)),
         ("Individual Meals", production_date + timedelta(days=13)),
+        ("Beef Chow Mein", production_date + timedelta(days=17)),
     ]
     pdf.ln(3)
     pdf.set_x(10)
@@ -194,7 +195,7 @@ def draw_summary_section(pdf, df, brand_names, production_date):
     pdf.set_font("Arial", "", 9)
     pdf.set_x(10)
     for name, expiry in use_by:
-        pdf.cell(190 / 3, 6, f"{name} - {expiry:%d/%m/%Y}", 1, align="C")
+        pdf.cell(190 / len(use_by), 6, f"{name} - {expiry:%d/%m/%Y}", 1, align="C")
     pdf.ln(9)
     return pdf.get_y()
 
