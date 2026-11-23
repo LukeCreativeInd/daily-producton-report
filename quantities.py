@@ -55,9 +55,13 @@ def normalize_upload(frame):
 
 
 def brand_planned(frame, brand):
-    """Manufacturing demand from validated columns; stock belongs to Clean Eats."""
+    """Allocate already-made stock to Clean Eats first, then Made Active."""
     if brand == 'Clean Eats':
         return (frame[brand] - frame['Already Made']).clip(lower=0)
+    if brand == 'Made Active':
+        clean_eats = frame['Clean Eats'] if 'Clean Eats' in frame else 0
+        remaining_stock = (frame['Already Made'] - clean_eats).clip(lower=0)
+        return (frame[brand] - remaining_stock).clip(lower=0)
     return frame[brand]
 
 
